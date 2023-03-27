@@ -1,0 +1,20 @@
+{
+  "name": "sawayama-solitaire",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "esbuild ts/app.ts --outfile=js/app.js --bundle --minify --target=es2017",
+    "watch": "esbuild ts/app.ts --outfile=js/app.js --bundle --servedir=. --serve=8989"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "esbuild": "0.17.14",
+    "pixi.js": "^7.2.3"
+  },
+  "devDependencies": {
+    "prettier": "2.8.7"
+  }
+}

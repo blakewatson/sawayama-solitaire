@@ -1,0 +1,7 @@
+#board {
+  max-width: 800px;
+}
+
+#board canvas {
+  max-width: 100%;
+}
