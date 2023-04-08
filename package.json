@@ -11,10 +11,13 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "animejs": "^3.2.1",
     "esbuild": "0.17.14",
-    "pixi.js": "^7.2.3"
+    "pixi.js": "^7.2.3",
+    "pubsub-js": "^1.9.4"
   },
   "devDependencies": {
+    "@types/animejs": "^3.1.7",
     "prettier": "2.8.7"
   }
 }

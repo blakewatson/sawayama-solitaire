@@ -1,5 +1,7 @@
-import { Assets, Texture, Ticker } from 'pixi.js';
+import { Assets, Spritesheet, Texture } from 'pixi.js';
+import deckData from '../images/deckData.json';
 import Game from './Game';
+import { store } from './store';
 
 export interface IAssets {
   deck: Texture;
@@ -9,16 +11,10 @@ init();
 
 async function init() {
   // load everything and call main
-  Assets.addBundle('graphics', {
-    deck: 'images/deck.png'
-  });
+  const texture = await Assets.load('images/deck.png');
+  const sheet = new Spritesheet(texture, deckData);
+  await sheet.parse();
+  store.spritesheet = sheet;
 
-  const graphics = await Assets.loadBundle('graphics');
-
-  main(graphics, Ticker.shared);
-}
-
-function main(graphics: IAssets, ticker: Ticker) {
-  // start the game
-  new Game(graphics, ticker);
+  new Game();
 }

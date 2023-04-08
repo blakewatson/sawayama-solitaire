@@ -36,4 +36,4 @@ function generateSpritesheet() {
   return frames;
 }
 
-console.log(generateSpritesheet());
+console.log(JSON.stringify(generateSpritesheet()));
