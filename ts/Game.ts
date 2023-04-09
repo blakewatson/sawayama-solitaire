@@ -27,6 +27,7 @@ import {
 } from './constants';
 import AceTray from './entities/AceTray';
 import Card, { CardClickData } from './entities/Card';
+import Cell from './entities/Cell';
 import Stack from './entities/Stack';
 import { store } from './store';
 import {
@@ -44,6 +45,9 @@ export default class Game {
   public gameElements: Container | null = null;
   public hand: Container<Card> | null = null;
   public handOffset: [number, number] = [0, 0];
+  // the stack or cell where the hand was picked up from
+  public handOrigin: number | null = null;
+  public placeholders: Container[] = [];
 
   constructor() {
     this.app = new Application({
@@ -84,7 +88,7 @@ export default class Game {
 
   public createBoard() {
     for (let i = 0; i < 7; i++) {
-      const stack: Stack = new Stack();
+      const stack: Stack = new Stack(i);
       stack.x = DECK_POS.x;
 
       if (i > 0) {
@@ -93,6 +97,9 @@ export default class Game {
 
       stack.y = BOARD_Y;
       stack.eventMode = 'static';
+
+      const cell = new Cell(i, stack.x, stack.y, CARD_W, CARD_H);
+      this.gameElements.addChild(cell);
 
       this.board.push(stack);
     }
@@ -150,6 +157,17 @@ export default class Game {
     });
   }
 
+  public destroyHand() {
+    if (!this.hand) {
+      return [];
+    }
+
+    const cards = this.hand.children.splice(0);
+    this.hand.destroy();
+    this.hand = null;
+    return cards;
+  }
+
   public displayDeck() {
     this.deckSprites = new Container();
     this.deckSprites.x = DECK_POS.x;
@@ -201,6 +219,9 @@ export default class Game {
       mouseEvent.globalY - stack.y
     ];
 
+    // track where the hand came from so we can put it back if needed
+    this.handOrigin = stack.id;
+
     this.hand = new Container();
     this.hand.addChild(...set);
 
@@ -216,7 +237,7 @@ export default class Game {
 
     card.eventMode = 'none';
     const boundary = new EventBoundary(this.gameElements);
-    const obj: Card | DisplayObject = boundary.hitTest(
+    const obj: Card | Cell | DisplayObject = boundary.hitTest(
       mouseEvent.globalX,
       mouseEvent.globalY
     );
@@ -236,6 +257,20 @@ export default class Game {
         return;
       }
 
+      // if stack is empty, place hand on stack
+      if (stack && stack.children.length === 0) {
+        const cards = this.destroyHand();
+        stack.addCards(...cards);
+        return;
+      }
+
+      // if it's the origin stack of the hand, allow placement
+      if (stack?.id === this.handOrigin) {
+        this.handOrigin = null;
+        const cards = this.destroyHand();
+        stack.addCards(...cards);
+      }
+
       // attempt to place the card on the stack
       if (stack) {
         const top = stack.children.at(-1);
@@ -244,13 +279,23 @@ export default class Game {
           return;
         }
 
-        const cards = this.hand.children.splice(0);
-        const hand = this.hand;
-        this.hand = null;
-        hand.destroy();
-
+        const cards = this.destroyHand();
         stack.addCards(...cards);
       }
+
+      return;
+    }
+
+    if (obj instanceof Cell) {
+      // if this is a free cell, attempt to place it on the corresponding stack
+      const stack = this.board[obj.id];
+
+      if (!stack || stack.children.length > 0) {
+        return;
+      }
+
+      const cards = this.destroyHand();
+      stack.addCards(...cards);
     }
   }
 
@@ -299,7 +344,7 @@ export default class Game {
   }
 
   public update(dt) {
-    if (this.hand) {
+    if (this.hand && !this.hand.destroyed) {
       this.hand.x = store.mousePosition[0] - this.handOffset[0];
       this.hand.y = store.mousePosition[1] - this.handOffset[1];
     }
