@@ -7,6 +7,8 @@ export interface IAssets {
   deck: Texture;
 }
 
+export let game: Game | null = null;
+
 init();
 
 async function init() {
@@ -16,5 +18,5 @@ async function init() {
   await sheet.parse();
   store.spritesheet = sheet;
 
-  new Game();
+  game = new Game();
 }

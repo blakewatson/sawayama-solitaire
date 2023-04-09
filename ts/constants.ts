@@ -6,6 +6,7 @@ export const CARD_OFFSET_VERTICAL = 28;
 export const STACK_GAP = 18;
 export const ACE_TRAY_W = CARD_W + STACK_GAP * 2;
 export const DECK_POS = { x: ACE_TRAY_W + STACK_GAP, y: 35 };
+export const CARD_ANIM_SPEED_MS = 5;
 
 export enum Suit {
   Clubs = 'clubs',
@@ -36,3 +37,8 @@ export const VIEW_H = 600;
 
 // Colors
 export const COLOR_BG = '#0f62b5';
+
+// Events
+export enum GameEvent {
+  CARD_CLICK = 'CARD_CLICK'
+}
