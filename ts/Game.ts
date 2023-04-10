@@ -5,12 +5,14 @@ import {
   Container,
   DisplayObject,
   EventBoundary,
+  Graphics,
   Rectangle,
   Sprite,
   Ticker
 } from 'pixi.js';
 import PubSub from 'pubsub-js';
 import {
+  ACE_TRAY_W,
   BOARD_Y,
   CARD_ANIM_SPEED_MS,
   CARD_H,
@@ -232,9 +234,6 @@ export default class Game {
   }
 
   public handleHandClick({ card, mouseEvent }: CardClickData) {
-    console.log('hand click');
-    // if multiple cards, only allow placement on board
-
     card.eventMode = 'none';
     const boundary = new EventBoundary(this.gameElements);
     const obj: Card | Cell | DisplayObject = boundary.hitTest(
@@ -249,8 +248,6 @@ export default class Game {
       const stack = this.board.find((s) =>
         s.children.find((c) => c.id === obj.id)
       );
-
-      console.log('stack found', stack);
 
       // a hand of multiple cards can only be placed on the board
       if (!stack && this.hand.children.length > 1) {
@@ -297,11 +294,33 @@ export default class Game {
       const cards = this.destroyHand();
       stack.addCards(...cards);
     }
+
+    // if is the appropriate ace tray, attempt to place
+    if (
+      obj instanceof AceTray &&
+      this.hand.children.length === 1 &&
+      this.hand.children.at(0).suit === obj.suit
+    ) {
+      if (obj.add(this.hand.children.at(0))) {
+        this.destroyHand();
+      }
+    }
   }
 
   public initAceTray() {
-    this.aceTray = new AceTray();
-    this.addChild(this.aceTray);
+    // create the dark background
+    const bg = new Graphics();
+    bg.beginFill('#00000033');
+    bg.drawRect(0, 0, ACE_TRAY_W, VIEW_H);
+    bg.endFill();
+    this.gameElements.addChild(bg);
+
+    Object.values(Suit).forEach((suit, idx) => {
+      const tray = new AceTray(suit);
+      tray.x = STACK_GAP;
+      tray.y = STACK_GAP + idx * (CARD_H + STACK_GAP);
+      this.gameElements.addChild(tray);
+    });
   }
 
   public initGameElements() {

@@ -31,6 +31,9 @@ export const getIndexOfSetInStack = (
   return idx;
 };
 
+export const getNumericalRank = (rank: Rank): number =>
+  Object.values(Rank).findIndex((r) => r === rank);
+
 export const isFirstCardAllowedOnSecond = (card1: Card, card2: Card) => {
   let suitsMatch =
     ((card1.suit === Suit.Clubs || card1.suit === Suit.Spades) &&
@@ -38,8 +41,8 @@ export const isFirstCardAllowedOnSecond = (card1: Card, card2: Card) => {
     ((card1.suit === Suit.Hearts || card1.suit === Suit.Diamonds) &&
       (card2.suit === Suit.Clubs || card2.suit === Suit.Spades));
 
-  const rank2 = Object.values(Rank).findIndex((r) => r === card2.rank);
-  const rank1 = Object.values(Rank).findIndex((r) => r === card1.rank);
+  const rank2 = getNumericalRank(card2.rank);
+  const rank1 = getNumericalRank(card1.rank);
 
   return suitsMatch && rank2 - rank1 === 1;
 };
