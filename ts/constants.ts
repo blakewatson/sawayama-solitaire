@@ -3,10 +3,11 @@ export const BOARD_Y = 165;
 export const CARD_W = 85;
 export const CARD_H = Math.round(CARD_W * 1.36363636);
 export const CARD_OFFSET_VERTICAL = 28;
+export const CARD_OFFSET_HORIZONTAL = 21;
 export const STACK_GAP = 18;
 export const ACE_TRAY_W = CARD_W + STACK_GAP * 2;
 export const DECK_POS = { x: ACE_TRAY_W + STACK_GAP, y: 35 };
-export const CARD_ANIM_SPEED_MS = 5;
+export const CARD_ANIM_SPEED_MS = 100;
 
 export enum Suit {
   Clubs = 'clubs',
@@ -42,3 +43,6 @@ export const COLOR_BG = '#0f62b5';
 export enum GameEvent {
   CARD_CLICK = 'CARD_CLICK'
 }
+
+// Misc
+export const BANK_STACK_ID = 7;

@@ -13,9 +13,11 @@ import {
 import PubSub from 'pubsub-js';
 import {
   ACE_TRAY_W,
+  BANK_STACK_ID,
   BOARD_Y,
   CARD_ANIM_SPEED_MS,
   CARD_H,
+  CARD_OFFSET_HORIZONTAL,
   CARD_OFFSET_VERTICAL,
   CARD_W,
   COLOR_BG,
@@ -41,6 +43,7 @@ import {
 export default class Game {
   public aceTray: AceTray | null = null;
   public app: Application | null = null;
+  public bank: Container<Card> | null = null;
   public board: Array<Stack> = [];
   public deck: Card[] = [];
   public deckSprites: Container | null = null;
@@ -73,6 +76,8 @@ export default class Game {
     this.displayDeck();
     // create the seven stacks
     this.createBoard();
+    // create the card bank
+    this.initBank();
 
     // start ticker
     Ticker.shared.add(this.update.bind(this));
@@ -81,6 +86,8 @@ export default class Game {
     this.dealNextCard(0).then(() => {
       // listen for events
       this.listenForCardClick();
+      // make the deck clickable
+      this.listenForDeckClick();
     });
   }
 
@@ -201,6 +208,26 @@ export default class Game {
     return stack.children.splice(idx);
   }
 
+  public handleBankClick({ card, mouseEvent }: CardClickData) {
+    console.log('bank clicked');
+
+    this.handOffset = [
+      mouseEvent.globalX - this.bank.x,
+      mouseEvent.globalY - this.bank.y
+    ];
+
+    this.handOrigin = BANK_STACK_ID;
+
+    this.hand = new Container();
+    this.hand.addChild(card);
+    this.gameElements.addChild(this.hand);
+
+    this.hand.x = store.mousePosition[0] - this.handOffset[0];
+    this.hand.y = store.mousePosition[1] - this.handOffset[1];
+
+    this.refreshBank();
+  }
+
   public handleBoardClick({ card, mouseEvent }: CardClickData) {
     // get a reference to the stack before we removed the card(s) from it
     const stack = this.board.find((stack) =>
@@ -236,11 +263,14 @@ export default class Game {
   public handleHandClick({ card, mouseEvent }: CardClickData) {
     card.eventMode = 'none';
     const boundary = new EventBoundary(this.gameElements);
+    const point = card.getGlobalPosition();
     const obj: Card | Cell | DisplayObject = boundary.hitTest(
-      mouseEvent.globalX,
-      mouseEvent.globalY
+      point.x + CARD_W / 2,
+      point.y + 5
     );
     card.eventMode = 'static';
+
+    console.log('hand hit test', obj);
 
     // a card was clicked
     if (obj instanceof Card) {
@@ -251,6 +281,16 @@ export default class Game {
 
       // a hand of multiple cards can only be placed on the board
       if (!stack && this.hand.children.length > 1) {
+        return;
+      }
+
+      // allow placement on the bank if it matches the hand's origin
+      if (!stack && this.bank.children.find((c) => c.id === obj.id)) {
+        if (this.handOrigin === BANK_STACK_ID) {
+          const cards = this.destroyHand();
+          this.bank.addChild(cards[0]);
+          this.refreshBank();
+        }
         return;
       }
 
@@ -323,6 +363,14 @@ export default class Game {
     });
   }
 
+  public initBank() {
+    this.bank = new Container();
+    this.bank.x = DECK_POS.x + CARD_W + STACK_GAP;
+    this.bank.y = DECK_POS.y;
+    this.bank.eventMode = 'static';
+    this.gameElements.addChild(this.bank);
+  }
+
   public initGameElements() {
     this.gameElements = new Container();
     this.gameElements.width = this.app.view.width;
@@ -348,9 +396,13 @@ export default class Game {
       GameEvent.CARD_CLICK,
       (msg: string, data: CardClickData) => {
         console.log(`clicked ${data.card.rank} of ${data.card.suit}`);
-        // todo: handle card clicks from the deck
+        // handle card clicks from the bank
+        if (this.bank.children.find((c) => c.id === data.card.id)) {
+          this.handleBankClick(data);
+          return;
+        }
 
-        // todo: handle card clicks on hand
+        // handle card clicks on hand
         if (this.hand?.children.find((c) => c.id === data.card.id)) {
           this.handleHandClick(data);
           return;
@@ -360,6 +412,49 @@ export default class Game {
         this.handleBoardClick(data);
       }
     );
+  }
+
+  public listenForDeckClick() {
+    this.deckSprites.eventMode = 'static';
+    this.deckSprites.addEventListener('pointertap', (event) => {
+      // draw three cards and make the top one active
+      const cards = [];
+
+      for (let i = 0; i < 3; i++) {
+        const card = this.deck.pop();
+        cards.push(card);
+        this.bank.addChild(card);
+        card.x = -STACK_GAP - CARD_W;
+        card.y = -this.deckSprites.children.length * 0.5;
+      }
+
+      anime({
+        targets: cards,
+        x: (card: Card, i: number) => {
+          return CARD_OFFSET_HORIZONTAL * (this.bank.children.length - 3 + i);
+        },
+        y: 0,
+        duration: CARD_ANIM_SPEED_MS,
+        easing: 'easeOutSine',
+        delay: anime.stagger(CARD_ANIM_SPEED_MS),
+        changeBegin: () => {
+          this.deckSprites.children.pop().destroy();
+          this.deckSprites.children.pop().destroy();
+          this.deckSprites.children.pop().destroy();
+        },
+        complete: () => {
+          this.refreshBank();
+        }
+      });
+    });
+  }
+
+  public refreshBank() {
+    this.bank.children.forEach((card) => (card.eventMode = 'none'));
+
+    if (this.bank.children.length) {
+      this.bank.children.at(-1).eventMode = 'static';
+    }
   }
 
   public update(dt) {

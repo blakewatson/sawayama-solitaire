@@ -18,6 +18,7 @@ export default class Stack extends Container<Card> {
   public alignCards() {
     this.children.forEach((card, i) => {
       card.y = i * CARD_OFFSET_VERTICAL;
+      card.x = 0;
     });
   }
 }
