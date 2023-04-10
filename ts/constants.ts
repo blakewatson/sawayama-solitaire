@@ -46,3 +46,4 @@ export enum GameEvent {
 
 // Misc
 export const BANK_STACK_ID = 7;
+export const DECK_CELL_ID = 8;

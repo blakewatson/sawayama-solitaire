@@ -21,6 +21,7 @@ import {
   CARD_OFFSET_VERTICAL,
   CARD_W,
   COLOR_BG,
+  DECK_CELL_ID,
   DECK_POS,
   GameEvent,
   Rank,
@@ -46,6 +47,7 @@ export default class Game {
   public bank: Container<Card> | null = null;
   public board: Array<Stack> = [];
   public deck: Card[] = [];
+  public deckCell: Cell | null = null;
   public deckSprites: Container | null = null;
   public gameElements: Container | null = null;
   public hand: Container<Card> | null = null;
@@ -178,6 +180,17 @@ export default class Game {
   }
 
   public displayDeck() {
+    // add the free cell
+    this.deckCell = new Cell(
+      DECK_CELL_ID,
+      DECK_POS.x,
+      DECK_POS.y,
+      CARD_W,
+      CARD_H
+    );
+    this.gameElements.addChild(this.deckCell);
+
+    // create the deck sprites
     this.deckSprites = new Container();
     this.deckSprites.x = DECK_POS.x;
     this.deckSprites.y = DECK_POS.y;
@@ -260,6 +273,25 @@ export default class Game {
     this.hand.y = store.mousePosition[1] - this.handOffset[1];
   }
 
+  public handleFreeCellClick({ card, mouseEvent }: CardClickData) {
+    console.log('free cell clicked');
+
+    this.handOffset = [
+      mouseEvent.globalX - this.deckCell.x,
+      mouseEvent.globalY - this.deckCell.y
+    ];
+
+    this.handOrigin = DECK_CELL_ID;
+
+    this.hand = new Container();
+    this.hand.addChild(card);
+    this.deckCell.removeCard();
+    this.gameElements.addChild(this.hand);
+
+    this.hand.x = store.mousePosition[0] - this.handOffset[0];
+    this.hand.y = store.mousePosition[1] - this.handOffset[1];
+  }
+
   public handleHandClick({ card, mouseEvent }: CardClickData) {
     card.eventMode = 'none';
     const boundary = new EventBoundary(this.gameElements);
@@ -324,6 +356,13 @@ export default class Game {
     }
 
     if (obj instanceof Cell) {
+      // if this is the deck cell, place the card there
+      if (obj.id === DECK_CELL_ID) {
+        const cards = this.destroyHand();
+        this.deckCell.addCard(cards[0]);
+        return;
+      }
+
       // if this is a free cell, attempt to place it on the corresponding stack
       const stack = this.board[obj.id];
 
@@ -408,6 +447,12 @@ export default class Game {
           return;
         }
 
+        // handle card click on the deck cell
+        if (this.deckCell.card?.id === data.card.id) {
+          this.handleFreeCellClick(data);
+          return;
+        }
+
         // handle card clicks on the board
         this.handleBoardClick(data);
       }
@@ -444,6 +489,11 @@ export default class Game {
         },
         complete: () => {
           this.refreshBank();
+
+          // if the deck is out of cards, activate the free cell
+          if (!this.deck.length) {
+            this.deckCell.eventMode = 'static';
+          }
         }
       });
     });
