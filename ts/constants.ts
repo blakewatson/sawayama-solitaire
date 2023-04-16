@@ -1,8 +1,8 @@
 // Cards
 export const BOARD_Y = 165;
 export const CARD_W = 85;
-export const CARD_H = Math.round(CARD_W * 1.36363636);
-export const CARD_OFFSET_VERTICAL = 28;
+export const CARD_H = Math.round(CARD_W * 1.38095238);
+export const CARD_OFFSET_VERTICAL = 24;
 export const CARD_OFFSET_HORIZONTAL = 21;
 export const STACK_GAP = 18;
 export const ACE_TRAY_W = CARD_W + STACK_GAP * 2;

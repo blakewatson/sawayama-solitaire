@@ -196,7 +196,7 @@ export default class Game {
     this.deckSprites.y = DECK_POS.y;
 
     this.deck.forEach((card, i) => {
-      const sprite = new Sprite(store.spritesheet.textures['back_red']);
+      const sprite = new Sprite(store.spritesheet.textures['back_2']);
       sprite.width = CARD_W;
       sprite.height = CARD_H;
       sprite.x = 0;
@@ -423,8 +423,8 @@ export default class Game {
         Math.round(event.globalX),
         Math.round(event.globalY)
       ];
-      document.querySelector('.mouse-x').innerHTML = event.globalX.toString();
-      document.querySelector('.mouse-y').innerHTML = event.globalY.toString();
+      // document.querySelector('.mouse-x').innerHTML = event.globalX.toString();
+      // document.querySelector('.mouse-y').innerHTML = event.globalY.toString();
     });
 
     this.addChild(this.gameElements);

@@ -2,7 +2,6 @@ import {
   ColorMatrixFilter,
   Container,
   Resource,
-  SCALE_MODES,
   Sprite,
   Texture
 } from 'pixi.js';
@@ -26,7 +25,6 @@ export default class AceTray extends Container {
     // create the background placeholder sprite
     const texture: Texture<Resource> =
       store.spritesheet.textures[`${suit}_${Rank.Ace}`];
-    texture.baseTexture.scaleMode = SCALE_MODES.NEAREST;
 
     const sprite = new Sprite(texture);
     sprite.width = CARD_W;
