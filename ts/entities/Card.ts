@@ -46,7 +46,7 @@ export default class Card extends Container {
 
     this.eventMode = 'static';
 
-    this.addListener('pointertap', (event) => {
+    this.addListener('pointerdown', (event) => {
       PubSub.publish(GameEvent.CARD_CLICK, {
         card: this,
         mouseEvent: event

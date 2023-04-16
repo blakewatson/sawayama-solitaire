@@ -38,11 +38,12 @@ import { store } from './store';
 import {
   getIndexOfSetInStack,
   isFirstCardAllowedOnSecond,
+  isTopCardAnAce,
   shuffleCards
 } from './utils';
 
 export default class Game {
-  public aceTray: AceTray | null = null;
+  public aceTrays: AceTray[] = [];
   public app: Application | null = null;
   public bank: Container<Card> | null = null;
   public board: Array<Stack> = [];
@@ -90,11 +91,68 @@ export default class Game {
       this.listenForCardClick();
       // make the deck clickable
       this.listenForDeckClick();
+      // move any aces
+      this.checkForAces();
+    });
+  }
+
+  public addCardToAceTray(card: Card, stack: Container<Card>) {
+    return new Promise((resolve, reject) => {
+      const tray = this.aceTrays.find((t) => t.suit === card.suit);
+      const trayCard = tray.children.at(-1) || null;
+      const cardPos = card.getGlobalPosition();
+      const trayPos = tray.getGlobalPosition();
+
+      if (trayCard instanceof Sprite) {
+        if (card.rank === Rank.Ace) {
+          // move card
+          anime({
+            targets: card,
+            x: trayPos.x - cardPos.x + card.x,
+            y: trayPos.y - cardPos.y + card.y,
+            easing: 'easeInOutSine',
+            duration: CARD_ANIM_SPEED_MS * 2,
+            complete: () => {
+              // move card
+              tray.add(card);
+              card.x = 0;
+              card.y = 0;
+
+              // refresh bank so that top card is clickable
+              this.refreshBank();
+
+              resolve(true);
+            }
+          });
+        }
+        return;
+      }
+
+      // todo: move eligible non-aces to ace tray
+      // const trayRank = getNumericalRank(trayCard.rank);
+      // const cardRank = getNumericalRank(card.rank);
+
+      // if (cardRank - trayRank === 1) {
+      //   // move card
+      // }
     });
   }
 
   public addChild(...children: DisplayObject[]) {
     this.app?.stage.addChild(...children);
+  }
+
+  public async checkForAces() {
+    if (isTopCardAnAce(this.bank)) {
+      await this.addCardToAceTray(this.bank.children.at(-1), this.bank);
+    }
+
+    // check board for aces
+    this.board.forEach(async (stack) => {
+      if (isTopCardAnAce(stack)) {
+        await this.addCardToAceTray(stack.children.at(-1), stack);
+      }
+    });
   }
 
   public createBoard() {
@@ -330,6 +388,7 @@ export default class Game {
       if (stack && stack.children.length === 0) {
         const cards = this.destroyHand();
         stack.addCards(...cards);
+        this.checkForAces();
         return;
       }
 
@@ -350,6 +409,7 @@ export default class Game {
 
         const cards = this.destroyHand();
         stack.addCards(...cards);
+        this.checkForAces();
       }
 
       return;
@@ -360,6 +420,7 @@ export default class Game {
       if (obj.id === DECK_CELL_ID) {
         const cards = this.destroyHand();
         this.deckCell.addCard(cards[0]);
+        this.checkForAces();
         return;
       }
 
@@ -372,6 +433,7 @@ export default class Game {
 
       const cards = this.destroyHand();
       stack.addCards(...cards);
+      this.checkForAces();
     }
 
     // if is the appropriate ace tray, attempt to place
@@ -398,6 +460,7 @@ export default class Game {
       const tray = new AceTray(suit);
       tray.x = STACK_GAP;
       tray.y = STACK_GAP + idx * (CARD_H + STACK_GAP);
+      this.aceTrays.push(tray);
       this.gameElements.addChild(tray);
     });
   }
@@ -423,8 +486,8 @@ export default class Game {
         Math.round(event.globalX),
         Math.round(event.globalY)
       ];
-      // document.querySelector('.mouse-x').innerHTML = event.globalX.toString();
-      // document.querySelector('.mouse-y').innerHTML = event.globalY.toString();
+      document.querySelector('.mouse-x').innerHTML = event.globalX.toString();
+      document.querySelector('.mouse-y').innerHTML = event.globalY.toString();
     });
 
     this.addChild(this.gameElements);
@@ -504,6 +567,10 @@ export default class Game {
 
     if (this.bank.children.length) {
       this.bank.children.at(-1).eventMode = 'static';
+
+      if (!this.hand) {
+        this.checkForAces();
+      }
     }
   }
 

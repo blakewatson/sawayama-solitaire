@@ -14,7 +14,7 @@ type Tray = {
   [key in Suit]: Container<Card | Sprite>;
 };
 
-export default class AceTray extends Container {
+export default class AceTray extends Container<Card | Sprite> {
   public suit: Suit = Suit.Hearts;
 
   public constructor(suit: Suit) {
