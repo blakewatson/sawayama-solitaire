@@ -1,5 +1,6 @@
 import { Container } from 'pixi.js';
 import { Rank, Suit } from './constants';
+import AceTray from './entities/AceTray';
 import Card from './entities/Card';
 
 export const getIndexOfSetInStack = (
@@ -47,8 +48,44 @@ export const isFirstCardAllowedOnSecond = (card1: Card, card2: Card) => {
   return suitsMatch && rank2 - rank1 === 1;
 };
 
-export const isTopCardAnAce = (stack: Container<Card>): boolean =>
-  stack.children.at(-1)?.rank === Rank.Ace;
+export const isTopCardAnAce = (
+  stack: Container<Card>,
+  card: Card = null
+): boolean => {
+  if (card) {
+    return card.rank === Rank.Ace;
+  }
+
+  return stack.children.at(-1)?.rank === Rank.Ace;
+};
+
+export const isTopCardATwo = (
+  stack: Container<Card>,
+  card: Card = null
+): boolean => {
+  if (card) {
+    return card.rank === Rank.Two;
+  }
+
+  return stack.children.at(-1)?.rank === Rank.Two;
+};
+
+export const shouldAutoMoveTopCard = (
+  stack: Container<Card>,
+  foundation: AceTray[],
+  card: Card | null = null
+): boolean => {
+  if (isTopCardAnAce(stack, card)) {
+    return true;
+  }
+
+  if (isTopCardATwo(stack, card)) {
+    const topCard = card || stack.children.at(-1);
+    const tray = foundation.find((t) => t.suit === topCard.suit);
+    const trayCard = tray.children.at(-1);
+    return trayCard instanceof Card && trayCard.rank === Rank.Ace;
+  }
+};
 
 export function shuffleCards(cards: Card[]): Card[] {
   // Create a copy of the original array to avoid modifying it directly

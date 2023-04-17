@@ -38,18 +38,18 @@ import { store } from './store';
 import {
   getIndexOfSetInStack,
   isFirstCardAllowedOnSecond,
-  isTopCardAnAce,
+  shouldAutoMoveTopCard,
   shuffleCards
 } from './utils';
 
 export default class Game {
-  public aceTrays: AceTray[] = [];
   public app: Application | null = null;
   public bank: Container<Card> | null = null;
   public board: Array<Stack> = [];
   public deck: Card[] = [];
   public deckCell: Cell | null = null;
   public deckSprites: Container | null = null;
+  public foundation: AceTray[] = [];
   public gameElements: Container | null = null;
   public hand: Container<Card> | null = null;
   public handOffset: [number, number] = [0, 0];
@@ -92,41 +92,36 @@ export default class Game {
       // make the deck clickable
       this.listenForDeckClick();
       // move any aces
-      this.checkForAces();
+      this.checkForFoundationCards();
     });
   }
 
-  public addCardToAceTray(card: Card, stack: Container<Card>) {
+  public addCardToAceTray(card: Card) {
     return new Promise((resolve, reject) => {
-      const tray = this.aceTrays.find((t) => t.suit === card.suit);
+      const tray = this.foundation.find((t) => t.suit === card.suit);
       const trayCard = tray.children.at(-1) || null;
       const cardPos = card.getGlobalPosition();
       const trayPos = tray.getGlobalPosition();
 
-      if (trayCard instanceof Sprite) {
-        if (card.rank === Rank.Ace) {
+      // move card
+      anime({
+        targets: card,
+        x: trayPos.x - cardPos.x + card.x,
+        y: trayPos.y - cardPos.y + card.y,
+        easing: 'easeInOutSine',
+        duration: CARD_ANIM_SPEED_MS * 2,
+        complete: () => {
           // move card
-          anime({
-            targets: card,
-            x: trayPos.x - cardPos.x + card.x,
-            y: trayPos.y - cardPos.y + card.y,
-            easing: 'easeInOutSine',
-            duration: CARD_ANIM_SPEED_MS * 2,
-            complete: () => {
-              // move card
-              tray.add(card);
-              card.x = 0;
-              card.y = 0;
+          tray.add(card);
+          card.x = 0;
+          card.y = 0;
 
-              // refresh bank so that top card is clickable
-              this.refreshBank();
+          // refresh bank so that top card is clickable
+          this.refreshBank();
 
-              resolve(true);
-            }
-          });
+          resolve(true);
         }
-        return;
-      }
+      });
 
       // todo: move eligible non-aces to ace tray
       // const trayRank = getNumericalRank(trayCard.rank);
@@ -142,17 +137,29 @@ export default class Game {
     this.app?.stage.addChild(...children);
   }
 
-  public async checkForAces() {
-    if (isTopCardAnAce(this.bank)) {
-      await this.addCardToAceTray(this.bank.children.at(-1), this.bank);
+  public async checkForFoundationCards() {
+    if (shouldAutoMoveTopCard(this.bank, this.foundation)) {
+      await this.addCardToAceTray(this.bank.children.at(-1));
+      this.checkForFoundationCards();
+      return;
     }
 
     // check board for aces
     this.board.forEach(async (stack) => {
-      if (isTopCardAnAce(stack)) {
-        await this.addCardToAceTray(stack.children.at(-1), stack);
+      if (shouldAutoMoveTopCard(stack, this.foundation)) {
+        await this.addCardToAceTray(stack.children.at(-1));
+        this.checkForFoundationCards();
       }
     });
+
+    // check free deck cell
+    if (
+      this.deckCell.card &&
+      shouldAutoMoveTopCard(null, this.foundation, this.deckCell.card)
+    ) {
+      await this.addCardToAceTray(this.deckCell.card);
+      this.checkForFoundationCards();
+    }
   }
 
   public createBoard() {
@@ -388,7 +395,7 @@ export default class Game {
       if (stack && stack.children.length === 0) {
         const cards = this.destroyHand();
         stack.addCards(...cards);
-        this.checkForAces();
+        this.checkForFoundationCards();
         return;
       }
 
@@ -409,7 +416,7 @@ export default class Game {
 
         const cards = this.destroyHand();
         stack.addCards(...cards);
-        this.checkForAces();
+        this.checkForFoundationCards();
       }
 
       return;
@@ -420,7 +427,7 @@ export default class Game {
       if (obj.id === DECK_CELL_ID) {
         const cards = this.destroyHand();
         this.deckCell.addCard(cards[0]);
-        this.checkForAces();
+        this.checkForFoundationCards();
         return;
       }
 
@@ -433,7 +440,7 @@ export default class Game {
 
       const cards = this.destroyHand();
       stack.addCards(...cards);
-      this.checkForAces();
+      this.checkForFoundationCards();
     }
 
     // if is the appropriate ace tray, attempt to place
@@ -444,6 +451,7 @@ export default class Game {
     ) {
       if (obj.add(this.hand.children.at(0))) {
         this.destroyHand();
+        this.checkForFoundationCards();
       }
     }
   }
@@ -460,7 +468,7 @@ export default class Game {
       const tray = new AceTray(suit);
       tray.x = STACK_GAP;
       tray.y = STACK_GAP + idx * (CARD_H + STACK_GAP);
-      this.aceTrays.push(tray);
+      this.foundation.push(tray);
       this.gameElements.addChild(tray);
     });
   }
@@ -569,7 +577,7 @@ export default class Game {
       this.bank.children.at(-1).eventMode = 'static';
 
       if (!this.hand) {
-        this.checkForAces();
+        this.checkForFoundationCards();
       }
     }
   }
