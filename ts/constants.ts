@@ -37,7 +37,7 @@ export const VIEW_W = ACE_TRAY_W + (CARD_W + STACK_GAP) * 7 + STACK_GAP;
 export const VIEW_H = (STACK_GAP + CARD_H) * 4 + STACK_GAP * 3;
 
 // Colors
-export const COLOR_BG = '#0f62b5';
+export const COLOR_BG = '#505459';
 
 // Events
 export enum GameEvent {

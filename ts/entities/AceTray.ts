@@ -34,8 +34,6 @@ export default class AceTray extends Container<Card | Sprite> {
     const filter = new ColorMatrixFilter();
     sprite.filters = [filter];
     filter.desaturate();
-    filter.contrast(1, true);
-    filter.brightness(0.25, true);
 
     this.eventMode = 'static';
 

@@ -513,8 +513,8 @@ export default class Game {
         Math.round(event.globalX),
         Math.round(event.globalY)
       ];
-      document.querySelector('.mouse-x').innerHTML = event.globalX.toString();
-      document.querySelector('.mouse-y').innerHTML = event.globalY.toString();
+      // document.querySelector('.mouse-x').innerHTML = event.globalX.toString();
+      // document.querySelector('.mouse-y').innerHTML = event.globalY.toString();
     });
 
     this.addChild(this.gameElements);
