@@ -39,7 +39,8 @@ import {
   getIndexOfSetInStack,
   isFirstCardAllowedOnSecond,
   shouldAutoMoveTopCard,
-  shuffleCards
+  shuffleCards,
+  stackIsSequential
 } from './utils';
 
 export default class Game {
@@ -138,13 +139,14 @@ export default class Game {
   }
 
   public async checkForFoundationCards() {
+    // check bank
     if (shouldAutoMoveTopCard(this.bank, this.foundation)) {
       await this.addCardToAceTray(this.bank.children.at(-1));
       this.checkForFoundationCards();
       return;
     }
 
-    // check board for aces
+    // check board
     this.board.forEach(async (stack) => {
       if (shouldAutoMoveTopCard(stack, this.foundation)) {
         await this.addCardToAceTray(stack.children.at(-1));
@@ -160,6 +162,23 @@ export default class Game {
       await this.addCardToAceTray(this.deckCell.card);
       this.checkForFoundationCards();
     }
+
+    // check for win condition
+    this.checkForWin();
+  }
+
+  public checkForWin() {
+    const hasWon =
+      !this.bank.children.length &&
+      !this.deck.length &&
+      !this.deckCell.card &&
+      this.board.every((stack) => stackIsSequential(stack));
+
+    if (!hasWon) {
+      return;
+    }
+
+    alert('YOU WIN');
   }
 
   public createBoard() {

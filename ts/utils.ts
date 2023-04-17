@@ -99,3 +99,12 @@ export function shuffleCards(cards: Card[]): Card[] {
 
   return shuffledCards;
 }
+
+export const stackIsSequential = (stack: Container<Card>): boolean =>
+  stack.children.every((card, i) => {
+    if (!i) {
+      return true;
+    }
+
+    return isFirstCardAllowedOnSecond(card, stack.children[i - 1]);
+  });
