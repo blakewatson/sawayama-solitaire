@@ -532,41 +532,39 @@ export default class Game {
 
   public listenForDeckClick() {
     this.deckSprites.eventMode = 'static';
-    this.deckSprites.addEventListener('pointertap', (event) => {
-      // draw three cards and make the top one active
-      const cards = [];
-
+    this.deckSprites.addEventListener('pointertap', async (event) => {
       for (let i = 0; i < 3; i++) {
         const card = this.deck.pop();
-        cards.push(card);
         this.bank.addChild(card);
         card.x = -STACK_GAP - CARD_W;
         card.y = -this.deckSprites.children.length * 0.5;
+        await animateCard.bind(this)(card, i);
       }
 
-      anime({
-        targets: cards,
-        x: (card: Card, i: number) => {
-          return CARD_OFFSET_HORIZONTAL * (this.bank.children.length - 3 + i);
-        },
-        y: 0,
-        duration: CARD_ANIM_SPEED_MS,
-        easing: 'easeOutSine',
-        delay: anime.stagger(CARD_ANIM_SPEED_MS),
-        changeBegin: () => {
-          this.deckSprites.children.pop().destroy();
-          this.deckSprites.children.pop().destroy();
-          this.deckSprites.children.pop().destroy();
-        },
-        complete: () => {
-          this.refreshBank();
+      this.refreshBank();
 
-          // if the deck is out of cards, activate the free cell
-          if (!this.deck.length) {
-            this.deckCell.eventMode = 'static';
-          }
-        }
-      });
+      // if the deck is out of cards, activate the free cell
+      if (!this.deck.length) {
+        this.deckCell.eventMode = 'static';
+      }
+
+      function animateCard(card: Card, num: number) {
+        return new Promise((resolve, reject) => {
+          anime({
+            targets: card,
+            x: CARD_OFFSET_HORIZONTAL * (this.bank.children.length - 1),
+            y: 0,
+            duration: CARD_ANIM_SPEED_MS,
+            easing: 'easeOutSine',
+            changeBegin: () => {
+              this.deckSprites.children.pop().destroy();
+            },
+            complete: () => {
+              resolve(true);
+            }
+          });
+        });
+      }
     });
   }
 
