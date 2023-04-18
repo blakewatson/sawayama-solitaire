@@ -46,6 +46,7 @@ import {
 export default class Game {
   public app: Application | null = null;
   public bank: Container<Card> | null = null;
+  public bankBg: Graphics | null = null;
   public board: Array<Stack> = [];
   public deck: Card[] = [];
   public deckCell: Cell | null = null;
@@ -386,7 +387,7 @@ export default class Game {
     );
     card.eventMode = 'static';
 
-    console.log('hand hit test', obj);
+    console.log('hand hit test', obj, obj.name);
 
     // a card was clicked
     if (obj instanceof Card) {
@@ -423,6 +424,7 @@ export default class Game {
         this.handOrigin = null;
         const cards = this.destroyHand();
         stack.addCards(...cards);
+        return;
       }
 
       // attempt to place the card on the stack
@@ -436,6 +438,7 @@ export default class Game {
         const cards = this.destroyHand();
         stack.addCards(...cards);
         this.checkForFoundationCards();
+        return;
       }
 
       return;
@@ -460,6 +463,7 @@ export default class Game {
       const cards = this.destroyHand();
       stack.addCards(...cards);
       this.checkForFoundationCards();
+      return;
     }
 
     // if is the appropriate ace tray, attempt to place
@@ -472,6 +476,14 @@ export default class Game {
         this.destroyHand();
         this.checkForFoundationCards();
       }
+      return;
+    }
+
+    if (obj.name === 'bank_bg' && this.handOrigin === BANK_STACK_ID) {
+      console.log('bank_bg play');
+      const cards = this.destroyHand();
+      this.bank.addChild(cards[0]);
+      this.refreshBank();
     }
   }
 
@@ -496,8 +508,26 @@ export default class Game {
     this.bank = new Container();
     this.bank.x = DECK_POS.x + CARD_W + STACK_GAP;
     this.bank.y = DECK_POS.y;
+
+    this.bankBg = new Graphics();
+    this.bankBg.name = 'bank_bg';
+    this.bankBg.beginFill('#00000011');
+    this.bankBg.drawRect(
+      this.bank.x,
+      this.bank.y,
+      VIEW_W - this.bank.x - STACK_GAP,
+      CARD_H
+    );
+    this.bankBg.endFill();
+
     this.bank.eventMode = 'static';
+    this.bankBg.eventMode = 'static';
+    this.gameElements.addChild(this.bankBg);
     this.gameElements.addChild(this.bank);
+
+    this.bankBg.addListener('pointerdown', () => {
+      console.log('bank bg clicked');
+    });
   }
 
   public initGameElements() {
