@@ -38,6 +38,7 @@ import { store } from './store';
 import {
   getIndexOfSetInStack,
   isFirstCardAllowedOnSecond,
+  isFoundationFull,
   shouldAutoMoveTopCard,
   shuffleCards,
   stackIsSequential
@@ -76,16 +77,44 @@ export default class Game {
     // init the aces tray
     this.initAceTray();
     // create the deck array in the store
-    this.createDeck();
+    this.resetDeck();
     // create deck stack on the canvas
     this.displayDeck();
     // create the seven stacks
     this.createBoard();
     // create the card bank
     this.initBank();
+    // init play again button
+    document
+      .querySelector('.game-over button')
+      .addEventListener('click', () => {
+        this.reset();
+      });
 
     // start ticker
     Ticker.shared.add(this.update.bind(this));
+
+    /**
+     * The following commented code is for putting the game one play away from
+     * endgame, making it easier to test endgame functions.
+     */
+    // Object.values(Suit).forEach((suit) => {
+    //   const tray = this.foundation.find((t) => t.suit === suit);
+    //   Object.values(Rank).forEach((rank) => {
+    //     const card = this.deck.find((card) => card.id === `${rank}_${suit}`);
+    //     tray.addChild(card);
+    //   });
+    // });
+
+    // this.deck = [];
+    // const card = this.foundation[0].children.at(-1);
+    // this.bank.addChild(card as Card);
+    // // listen for events
+    // this.listenForCardClick();
+    // // make the deck clickable
+    // this.listenForDeckClick();
+    // // move any aces
+    // this.checkForFoundationCards();
 
     // deal all the cards to the board
     this.dealNextCard(0).then(() => {
@@ -98,10 +127,9 @@ export default class Game {
     });
   }
 
-  public addCardToAceTray(card: Card) {
+  public addCardToAceTray(card: Card, duration = CARD_ANIM_SPEED_MS * 2) {
     return new Promise((resolve, reject) => {
       const tray = this.foundation.find((t) => t.suit === card.suit);
-      const trayCard = tray.children.at(-1) || null;
       const cardPos = card.getGlobalPosition();
       const trayPos = tray.getGlobalPosition();
 
@@ -111,27 +139,16 @@ export default class Game {
         x: trayPos.x - cardPos.x + card.x,
         y: trayPos.y - cardPos.y + card.y,
         easing: 'easeInOutSine',
-        duration: CARD_ANIM_SPEED_MS * 2,
+        duration,
         complete: () => {
           // move card
           tray.add(card);
           card.x = 0;
           card.y = 0;
 
-          // refresh bank so that top card is clickable
-          this.refreshBank();
-
           resolve(true);
         }
       });
-
-      // todo: move eligible non-aces to ace tray
-      // const trayRank = getNumericalRank(trayCard.rank);
-      // const cardRank = getNumericalRank(card.rank);
-
-      // if (cardRank - trayRank === 1) {
-      //   // move card
-      // }
     });
   }
 
@@ -143,6 +160,7 @@ export default class Game {
     // check bank
     if (shouldAutoMoveTopCard(this.bank, this.foundation)) {
       await this.addCardToAceTray(this.bank.children.at(-1));
+      this.refreshBank();
       this.checkForFoundationCards();
       return;
     }
@@ -179,7 +197,7 @@ export default class Game {
       return;
     }
 
-    alert('YOU WIN');
+    this.gameOver();
   }
 
   public createBoard() {
@@ -201,16 +219,6 @@ export default class Game {
     }
 
     this.gameElements.addChild(...this.board);
-  }
-
-  public createDeck() {
-    Object.values(Rank).forEach((rank) => {
-      Object.values(Suit).forEach((suit) => {
-        this.deck.push(new Card(rank, suit));
-      });
-    });
-
-    this.deck = shuffleCards(this.deck);
   }
 
   public dealNextCard(start = 0, col = 0) {
@@ -280,16 +288,38 @@ export default class Game {
     this.deckSprites.x = DECK_POS.x;
     this.deckSprites.y = DECK_POS.y;
 
-    this.deck.forEach((card, i) => {
-      const sprite = new Sprite(store.spritesheet.textures['back_2']);
-      sprite.width = CARD_W;
-      sprite.height = CARD_H;
-      sprite.x = 0;
-      sprite.y = i === 0 ? 0 : 0 - i + 0.5 * i;
-      this.deckSprites.addChild(sprite);
-    });
+    this.resetDeckSprites();
 
     this.gameElements.addChild(this.deckSprites);
+  }
+
+  public async gameOver() {
+    this.gameElements.eventMode = 'none';
+    let trayNum = 0;
+
+    while (!isFoundationFull(this.foundation) && trayNum < 1000) {
+      const tray = this.foundation.at(trayNum % 4);
+      trayNum++;
+      const idNeeded = tray.nextCardNeeded();
+
+      const card = this.board.reduce((card: Card | null, stack, i) => {
+        if (card || !stack.children.length) {
+          return card;
+        }
+
+        return stack.children.at(-1).id === idNeeded
+          ? stack.children.at(-1)
+          : card;
+      }, null);
+
+      if (!card) {
+        continue;
+      }
+
+      await this.addCardToAceTray(card, CARD_ANIM_SPEED_MS * 1.5);
+    }
+
+    document.querySelector('.game-over').classList.toggle('active');
   }
 
   public getCardSet(selectedCard: Card): Card[] | false {
@@ -524,10 +554,6 @@ export default class Game {
     this.bankBg.eventMode = 'static';
     this.gameElements.addChild(this.bankBg);
     this.gameElements.addChild(this.bank);
-
-    this.bankBg.addListener('pointerdown', () => {
-      console.log('bank bg clicked');
-    });
   }
 
   public initGameElements() {
@@ -627,6 +653,44 @@ export default class Game {
         this.checkForFoundationCards();
       }
     }
+  }
+
+  public reset() {
+    console.log('restarting game');
+    // destroy foundation cards
+    this.foundation.forEach((tray) => tray.reset());
+    // prepared the deck
+    this.resetDeck();
+    // reset the deck sprites (card backs)
+    this.resetDeckSprites();
+    // deal the cards
+    this.dealNextCard(0).then(() => {
+      this.checkForFoundationCards();
+      this.gameElements.eventMode = 'static';
+    });
+    // hide the game over screen
+    document.querySelector('.game-over').classList.toggle('active');
+  }
+
+  public resetDeck() {
+    Object.values(Rank).forEach((rank) => {
+      Object.values(Suit).forEach((suit) => {
+        this.deck.push(new Card(rank, suit));
+      });
+    });
+
+    this.deck = shuffleCards(this.deck);
+  }
+
+  public resetDeckSprites() {
+    this.deck.forEach((card, i) => {
+      const sprite = new Sprite(store.spritesheet.textures['back_2']);
+      sprite.width = CARD_W;
+      sprite.height = CARD_H;
+      sprite.x = 0;
+      sprite.y = i === 0 ? 0 : 0 - i + 0.5 * i;
+      this.deckSprites.addChild(sprite);
+    });
   }
 
   public update(dt) {

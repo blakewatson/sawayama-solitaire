@@ -67,4 +67,35 @@ export default class AceTray extends Container<Card | Sprite> {
 
     return false;
   }
+
+  public isFull() {
+    return this.children.length > 13;
+  }
+
+  public nextCardNeeded() {
+    if (this.children.length === 1) {
+      return `${this.suit}_${Rank.Ace}`;
+    }
+
+    if (this.children.length > 13) {
+      return false;
+    }
+
+    const topCard = this.children.at(-1) as Card;
+    const currentRank = getNumericalRank(topCard.rank);
+    const nextRank = Object.values(Rank)[currentRank + 1];
+    return `${nextRank}_${this.suit}`;
+  }
+
+  public reset() {
+    this.children.forEach((card) => {
+      if (card instanceof Sprite) {
+        return;
+      }
+
+      card.destroy();
+    });
+
+    this.children.splice(1);
+  }
 }

@@ -48,6 +48,9 @@ export const isFirstCardAllowedOnSecond = (card1: Card, card2: Card) => {
   return suitsMatch && rank2 - rank1 === 1;
 };
 
+export const isFoundationFull = (foundation: AceTray[]): boolean =>
+  foundation.every((tray) => tray.isFull());
+
 export const isTopCardAnAce = (
   stack: Container<Card>,
   card: Card = null
