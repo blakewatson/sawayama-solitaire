@@ -68,6 +68,10 @@ export default class AceTray extends Container<Card | Sprite> {
     return false;
   }
 
+  public isEmpty() {
+    return this.children.length < 2;
+  }
+
   public isFull() {
     return this.children.length > 13;
   }
@@ -93,6 +97,7 @@ export default class AceTray extends Container<Card | Sprite> {
         return;
       }
 
+      card.removeFromTicker();
       card.destroy();
     });
 

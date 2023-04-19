@@ -38,13 +38,16 @@ import { store } from './store';
 import {
   getIndexOfSetInStack,
   isFirstCardAllowedOnSecond,
+  isFoundationEmpty,
   isFoundationFull,
+  rand,
   shouldAutoMoveTopCard,
   shuffleCards,
   stackIsSequential
 } from './utils';
 
 export default class Game {
+  public animatedCards: Container<Card> | null = null;
   public app: Application | null = null;
   public bank: Container<Card> | null = null;
   public bankBg: Graphics | null = null;
@@ -54,10 +57,13 @@ export default class Game {
   public deckSprites: Container | null = null;
   public foundation: AceTray[] = [];
   public gameElements: Container | null = null;
+  public gratuitousSprites: Container<Sprite> | null = null;
+  public gratuitousSpritesLast = 0;
   public hand: Container<Card> | null = null;
   public handOffset: [number, number] = [0, 0];
   // the stack or cell where the hand was picked up from
   public handOrigin: number | null = null;
+  public isGameOver = false;
   public placeholders: Container[] = [];
 
   constructor() {
@@ -93,12 +99,31 @@ export default class Game {
         });
       });
 
+    // set up animated tail container
+    this.gratuitousSprites = new Container();
+    this.gameElements.addChild(this.gratuitousSprites);
+
+    // set up animated cards container
+    this.animatedCards = new Container();
+    this.gameElements.addChild(this.animatedCards);
+
     // start ticker
     Ticker.shared.add(this.update.bind(this));
 
+    // deal all the cards to the board
+    this.dealNextCard(0).then(() => {
+      // listen for events
+      this.listenForCardClick();
+      // make the deck clickable
+      this.listenForDeckClick();
+      // move any aces
+      this.checkForFoundationCards();
+    });
+
     /**
      * The following commented code is for putting the game one play away from
-     * endgame, making it easier to test endgame functions.
+     * endgame, making it easier to test endgame functions. To use it, comment
+     * out the dealNextCard block above and uncomment the following.
      */
     // Object.values(Suit).forEach((suit) => {
     //   const tray = this.foundation.find((t) => t.suit === suit);
@@ -110,23 +135,14 @@ export default class Game {
 
     // this.deck = [];
     // const card = this.foundation[0].children.at(-1);
-    // this.bank.addChild(card as Card);
+    // this.deckCell.addCard(card as Card);
+    // this.deckSprites.removeChildren();
     // // listen for events
     // this.listenForCardClick();
     // // make the deck clickable
     // this.listenForDeckClick();
     // // move any aces
     // this.checkForFoundationCards();
-
-    // deal all the cards to the board
-    this.dealNextCard(0).then(() => {
-      // listen for events
-      this.listenForCardClick();
-      // make the deck clickable
-      this.listenForDeckClick();
-      // move any aces
-      this.checkForFoundationCards();
-    });
   }
 
   public addCardToAceTray(card: Card, duration = CARD_ANIM_SPEED_MS * 2) {
@@ -199,6 +215,7 @@ export default class Game {
       return;
     }
 
+    this.isGameOver = true;
     this.gameOver();
   }
 
@@ -322,6 +339,38 @@ export default class Game {
     }
 
     document.querySelector('.game-over').classList.add('active');
+    this.gameOverBonusAnimation();
+  }
+
+  public async gameOverBonusAnimation() {
+    let trayNum = 0;
+
+    while (!isFoundationEmpty(this.foundation) && trayNum < 1000) {
+      const tray = this.foundation.at(trayNum % 4);
+
+      if (!tray.isEmpty()) {
+        const card = this.foundation[trayNum % 4].children.pop() as Card;
+        const position = card.getGlobalPosition();
+        this.animatedCards.addChild(card);
+
+        card.x = position.x;
+        card.y = position.y;
+        card.velocityX = rand(1.5, 4);
+        card.velocityY = rand(1.5, 3) * 1 + (trayNum % 4) * 1.1;
+        card.ogVelocityY = card.velocityY;
+        card.gravity = rand(0.05, 0.15);
+
+        await (function () {
+          return new Promise((resolve, reject) => {
+            setTimeout(() => {
+              resolve(true);
+            }, 4000);
+          });
+        })();
+      }
+
+      trayNum++;
+    }
   }
 
   public getCardSet(selectedCard: Card): Card[] | false {
@@ -662,12 +711,16 @@ export default class Game {
     if (this.hand) {
       return;
     }
+    this.isGameOver = false;
     // destroy foundation cards
     this.foundation.forEach((tray) => tray.reset());
     // destroy board cards
     this.board.forEach((stack) => stack.removeChildren());
     // destroy bank cards
     this.bank.removeChildren();
+    // destroy animated cards and sprites
+    this.animatedCards.removeChildren();
+    this.gratuitousSprites.removeChildren();
     // prepared the deck
     this.resetDeck();
     // reset the deck sprites (card backs)
@@ -710,6 +763,25 @@ export default class Game {
     if (this.hand && !this.hand.destroyed) {
       this.hand.x = store.mousePosition[0] - this.handOffset[0];
       this.hand.y = store.mousePosition[1] - this.handOffset[1];
+    }
+
+    this.gratuitousSpritesLast += dt;
+
+    if (
+      this.animatedCards.children.length &&
+      this.gratuitousSpritesLast + dt > 1
+    ) {
+      this.gratuitousSpritesLast = 0;
+      this.animatedCards.children.forEach((card) => {
+        const sprite = new Sprite(
+          store.spritesheet.textures[`${card.suit}_${card.rank}`]
+        );
+        this.gratuitousSprites.addChild(sprite);
+        sprite.x = card.x;
+        sprite.y = card.y;
+        sprite.width = CARD_W;
+        sprite.height = CARD_H;
+      });
     }
   }
 }

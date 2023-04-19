@@ -48,6 +48,9 @@ export const isFirstCardAllowedOnSecond = (card1: Card, card2: Card) => {
   return suitsMatch && rank2 - rank1 === 1;
 };
 
+export const isFoundationEmpty = (foundation: AceTray[]): boolean =>
+  foundation.every((tray) => tray.isEmpty());
+
 export const isFoundationFull = (foundation: AceTray[]): boolean =>
   foundation.every((tray) => tray.isFull());
 
@@ -72,6 +75,9 @@ export const isTopCardATwo = (
 
   return stack.children.at(-1)?.rank === Rank.Two;
 };
+
+export const rand = (min: number, max: number): number =>
+  Math.random() * (max - min) + min;
 
 export const shouldAutoMoveTopCard = (
   stack: Container<Card>,

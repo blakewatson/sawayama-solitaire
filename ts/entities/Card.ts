@@ -3,10 +3,19 @@ import {
   FederatedPointerEvent,
   Resource,
   Sprite,
-  Texture
+  Texture,
+  Ticker
 } from 'pixi.js';
 import PubSub from 'pubsub-js';
-import { CARD_H, CARD_W, GameEvent, Rank, Suit } from '../constants';
+import {
+  CARD_H,
+  CARD_W,
+  GameEvent,
+  Rank,
+  Suit,
+  VIEW_H,
+  VIEW_W
+} from '../constants';
 import { store } from '../store';
 
 export interface CardClickData {
@@ -16,12 +25,18 @@ export interface CardClickData {
 
 export default class Card extends Container {
   public cardSprite: Sprite | null = null;
-  public id: string = '';
-  public isTracking: boolean = false;
-  public ogX: number = 0;
-  public ogY: number = 0;
+  public id = '';
+  public isTracking = false;
+  public ogX = 0;
+  public ogY = 0;
   public rank: Rank = Rank.Two;
   public suit: Suit = Suit.Hearts;
+
+  // animation params
+  public velocityX = 0;
+  public velocityY = 0;
+  public ogVelocityY = 0;
+  public gravity = 0;
 
   public constructor(rank: Rank, suit: Suit) {
     super();
@@ -31,7 +46,6 @@ export default class Card extends Container {
     this.cardSprite = new Sprite(texture);
     this.cardSprite.width = CARD_W;
     this.cardSprite.height = CARD_H;
-    // this.cardSprite.anchor.set(0.5);
 
     this.ogX = this.x;
     this.ogY = this.y;
@@ -42,8 +56,6 @@ export default class Card extends Container {
     this.suit = suit;
     this.id = `${rank}_${suit}`;
 
-    let offset = [0, 0];
-
     this.eventMode = 'static';
 
     this.addListener('pointerdown', (event) => {
@@ -53,38 +65,27 @@ export default class Card extends Container {
       });
     });
 
-    // this.addListener('pointertap', (event) => {
-    //   if (store.cardInHand && store.cardInHand !== this) {
-    //     return;
-    //   }
+    Ticker.shared.add(this.update, this);
+  }
 
-    //   if (!this.isTracking) {
-    //     // tracking this offset allows the card to be grabbed from anywhere
-    //     // without making it jump straight to the mouse position
-    //     offset[0] = event.globalX - this.x;
-    //     offset[1] = event.globalY - this.y;
-    //     // for right now save the original position of the card (future:
-    //     // probably allow it to go to any valid spots)
-    //     this.ogX = this.x;
-    //     this.ogY = this.y;
-    //     // make the store aware
-    //     store.cardInHand = this;
-    //   } else {
-    //     offset[0] = 0;
-    //     this.x = this.ogX;
-    //     this.y = this.ogY;
-    //     store.cardInHand = null;
-    //   }
+  public removeFromTicker() {
+    Ticker.shared.remove(this.update, this);
+  }
 
-    //   this.isTracking = !this.isTracking;
-    // });
+  public update(dt) {
+    this.x += dt * this.velocityX;
+    this.y -= dt * this.velocityY;
+    this.velocityY -= this.gravity;
 
-    // Ticker.shared.add(() => {
-    //   if (this.isTracking) {
-    //     this.x = store.mousePosition[0] - offset[0];
-    //     this.y = store.mousePosition[1] - offset[1];
-    //     return;
-    //   }
-    // });
+    const globalPosition = this.getGlobalPosition();
+
+    if (globalPosition.y + CARD_H > VIEW_H) {
+      this.velocityY = Math.abs(this.velocityY / 1.5);
+    }
+
+    if (globalPosition.x > VIEW_W) {
+      this.removeFromTicker();
+      this.destroy();
+    }
   }
 }
