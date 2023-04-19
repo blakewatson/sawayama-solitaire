@@ -23,13 +23,13 @@ body {
   top: 18px;
   right: 18px;
   appearance: none;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 5px;
   padding: 0.5em 1em;
   font-size: 14px;
   font-weight: bold;
   color: white;
-  background-color: steelblue;
+  background-color: #346186;
 }
 
 .game-over {
@@ -53,13 +53,13 @@ body {
 
 .game-over button {
   appearance: none;
-  border: none;
+  border: 2px solid rgba(255, 255, 255, 0.15);
   border-radius: 100px;
   padding: 0.5em 1em;
   font-size: 32px;
   font-weight: bold;
   color: white;
-  background-color: steelblue;
+  background-color: #346186;
 }
 
 .game-over.active {
