@@ -18,6 +18,20 @@ body {
   max-width: 100%;
 }
 
+.reset-button {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  appearance: none;
+  border: none;
+  border-radius: 5px;
+  padding: 0.5em 1em;
+  font-size: 14px;
+  font-weight: bold;
+  color: white;
+  background-color: steelblue;
+}
+
 .game-over {
   position: absolute;
   left: 0;

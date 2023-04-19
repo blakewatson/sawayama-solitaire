@@ -86,9 +86,11 @@ export default class Game {
     this.initBank();
     // init play again button
     document
-      .querySelector('.game-over button')
-      .addEventListener('click', () => {
-        this.reset();
+      .querySelectorAll('.game-over button, .reset-button')
+      .forEach((el) => {
+        el.addEventListener('click', () => {
+          this.reset();
+        });
       });
 
     // start ticker
@@ -319,7 +321,7 @@ export default class Game {
       await this.addCardToAceTray(card, CARD_ANIM_SPEED_MS * 1.5);
     }
 
-    document.querySelector('.game-over').classList.toggle('active');
+    document.querySelector('.game-over').classList.add('active');
   }
 
   public getCardSet(selectedCard: Card): Card[] | false {
@@ -656,9 +658,16 @@ export default class Game {
   }
 
   public reset() {
-    console.log('restarting game');
+    // don't allow reset if there is a card in hand
+    if (this.hand) {
+      return;
+    }
     // destroy foundation cards
     this.foundation.forEach((tray) => tray.reset());
+    // destroy board cards
+    this.board.forEach((stack) => stack.removeChildren());
+    // destroy bank cards
+    this.bank.removeChildren();
     // prepared the deck
     this.resetDeck();
     // reset the deck sprites (card backs)
@@ -669,10 +678,12 @@ export default class Game {
       this.gameElements.eventMode = 'static';
     });
     // hide the game over screen
-    document.querySelector('.game-over').classList.toggle('active');
+    document.querySelector('.game-over').classList.remove('active');
   }
 
   public resetDeck() {
+    this.deck = [];
+
     Object.values(Rank).forEach((rank) => {
       Object.values(Suit).forEach((suit) => {
         this.deck.push(new Card(rank, suit));
@@ -683,6 +694,8 @@ export default class Game {
   }
 
   public resetDeckSprites() {
+    this.deckSprites.removeChildren();
+
     this.deck.forEach((card, i) => {
       const sprite = new Sprite(store.spritesheet.textures['back_2']);
       sprite.width = CARD_W;
