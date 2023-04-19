@@ -660,6 +660,9 @@ export default class Game {
     this.deckSprites.eventMode = 'static';
     this.deckSprites.addEventListener('pointertap', async (event) => {
       for (let i = 0; i < 3; i++) {
+        if (!this.deck.length) {
+          continue;
+        }
         const card = this.deck.pop();
         this.bank.addChild(card);
         card.x = -STACK_GAP - CARD_W;
