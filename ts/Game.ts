@@ -721,6 +721,8 @@ export default class Game {
     this.board.forEach((stack) => stack.removeChildren());
     // destroy bank cards
     this.bank.removeChildren();
+    // destroy deck cell card
+    this.deckCell.removeCard();
     // destroy animated cards and sprites
     this.animatedCards.removeChildren();
     this.gratuitousSprites.removeChildren();
