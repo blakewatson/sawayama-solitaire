@@ -70,6 +70,7 @@ body {
   margin: 0 auto;
   max-width: 550px;
   text-align: left;
+  word-wrap: break-word;
 }
 
 a {
