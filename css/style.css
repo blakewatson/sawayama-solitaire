@@ -65,3 +65,13 @@ body {
 .game-over.active {
   display: flex;
 }
+
+.content {
+  margin: 0 auto;
+  max-width: 550px;
+  text-align: left;
+}
+
+a {
+  color: whitesmoke;
+}
