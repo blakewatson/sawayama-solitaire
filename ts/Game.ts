@@ -57,7 +57,7 @@ export default class Game {
   public deckSprites: Container | null = null;
   public foundation: AceTray[] = [];
   public gameElements: Container | null = null;
-  public gratuitousSprites: Container<Sprite> | null = null;
+  public gratuitousSprites: Array<Container<Sprite>> = [];
   public gratuitousSpritesLast = 0;
   public hand: Container<Card> | null = null;
   public handOffset: [number, number] = [0, 0];
@@ -98,10 +98,6 @@ export default class Game {
           this.reset();
         });
       });
-
-    // set up animated tail container
-    this.gratuitousSprites = new Container();
-    this.gameElements.addChild(this.gratuitousSprites);
 
     // set up animated cards container
     this.animatedCards = new Container();
@@ -725,7 +721,11 @@ export default class Game {
     this.deckCell.removeCard();
     // destroy animated cards and sprites
     this.animatedCards.removeChildren();
-    this.gratuitousSprites.removeChildren();
+    this.gratuitousSprites.forEach((sprites) => {
+      sprites.removeChildren();
+      sprites.destroy();
+    });
+    this.gratuitousSprites = [];
     // prepared the deck
     this.resetDeck();
     // reset the deck sprites (card backs)
@@ -774,14 +774,24 @@ export default class Game {
 
     if (
       this.animatedCards.children.length &&
-      this.gratuitousSpritesLast + dt > 1
+      this.gratuitousSpritesLast + dt > 1.5
     ) {
       this.gratuitousSpritesLast = 0;
-      this.animatedCards.children.forEach((card) => {
+      this.animatedCards.children.forEach((card, i) => {
+        if (!this.gratuitousSprites[i]) {
+          this.gratuitousSprites[i] = new Container();
+          this.gameElements.addChild(this.gratuitousSprites[i]);
+        }
+
+        if (card.isHidden) {
+          return;
+        }
+
         const sprite = new Sprite(
           store.spritesheet.textures[`${card.suit}_${card.rank}`]
         );
-        this.gratuitousSprites.addChild(sprite);
+        this.gratuitousSprites[i].addChild(sprite);
+
         sprite.x = card.x;
         sprite.y = card.y;
         sprite.width = CARD_W;

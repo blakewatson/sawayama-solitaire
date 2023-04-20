@@ -26,6 +26,7 @@ export interface CardClickData {
 export default class Card extends Container {
   public cardSprite: Sprite | null = null;
   public id = '';
+  public isHidden = false;
   public isTracking = false;
   public ogX = 0;
   public ogY = 0;
@@ -80,12 +81,12 @@ export default class Card extends Container {
     const globalPosition = this.getGlobalPosition();
 
     if (globalPosition.y + CARD_H > VIEW_H) {
-      this.velocityY = Math.abs(this.velocityY / 1.5);
+      this.velocityY = Math.abs(this.velocityY / 1.35);
     }
 
-    if (globalPosition.x > VIEW_W) {
+    if (globalPosition.x > VIEW_W + 10) {
       this.removeFromTicker();
-      this.destroy();
+      this.isHidden = true;
     }
   }
 }
