@@ -63,7 +63,9 @@ export default class Game {
   public handOffset: [number, number] = [0, 0];
   // the stack or cell where the hand was picked up from
   public handOrigin: number | null = null;
+  public isAnimatingDealing = false;
   public isAnimatingDeckDraw = false;
+  public isAnimatingToFoundation = false;
   public isGameOver = false;
   public placeholders: Container[] = [];
 
@@ -148,6 +150,8 @@ export default class Game {
       const cardPos = card.getGlobalPosition();
       const trayPos = tray.getGlobalPosition();
 
+      this.isAnimatingToFoundation = true;
+
       // move card
       anime({
         targets: card,
@@ -160,6 +164,8 @@ export default class Game {
           tray.add(card);
           card.x = 0;
           card.y = 0;
+
+          this.isAnimatingToFoundation = false;
 
           resolve(true);
         }
@@ -256,6 +262,8 @@ export default class Game {
         col = start;
       }
 
+      this.isAnimatingDealing = true;
+
       anime({
         targets: card,
         x: stack.x,
@@ -272,6 +280,7 @@ export default class Game {
             return this.dealNextCard(start, col).then(() => resolve(true));
           }
 
+          this.isAnimatingDealing = false;
           resolve(true);
         }
       });
@@ -723,10 +732,16 @@ export default class Game {
   }
 
   public reset() {
-    // don't allow reset if there is a card in hand
-    if (this.hand) {
+    // don't allow reset if there is a card in hand or gameplay animation is happening
+    if (
+      this.hand ||
+      this.isAnimatingDealing ||
+      this.isAnimatingDeckDraw ||
+      this.isAnimatingToFoundation
+    ) {
       return;
     }
+    this.gameElements.eventMode = 'none';
     this.isGameOver = false;
     // destroy foundation cards
     this.foundation.forEach((tray) => tray.reset());
