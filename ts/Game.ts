@@ -470,14 +470,16 @@ export default class Game {
   }
 
   public handleHandClick({ card, mouseEvent }: CardClickData) {
-    card.eventMode = 'none';
+    this.hand.eventMode = 'none';
+
     const boundary = new EventBoundary(this.gameElements);
     const point = card.getGlobalPosition();
     const obj: Card | Cell | DisplayObject = boundary.hitTest(
       point.x + CARD_W / 2,
-      point.y + 5
+      point.y + CARD_H / 4
     );
-    card.eventMode = 'static';
+
+    this.hand.eventMode = 'static';
 
     console.log('hand hit test', obj, obj.name);
 
