@@ -643,6 +643,10 @@ export default class Game {
       GameEvent.CARD_CLICK,
       (msg: string, data: CardClickData) => {
         console.log(`clicked ${data.card.rank} of ${data.card.suit}`);
+        if (this.isAnimatingToFoundation) {
+          return;
+        }
+
         // handle card clicks from the bank
         if (this.bank.children.find((c) => c.id === data.card.id)) {
           this.handleBankClick(data);
