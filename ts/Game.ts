@@ -63,6 +63,7 @@ export default class Game {
   public handOffset: [number, number] = [0, 0];
   // the stack or cell where the hand was picked up from
   public handOrigin: number | null = null;
+  public isAnimatingDeckDraw = false;
   public isGameOver = false;
   public placeholders: Container[] = [];
 
@@ -265,6 +266,7 @@ export default class Game {
           stack.addChild(card);
           card.x = 0;
           card.y = CARD_OFFSET_VERTICAL * (stack.children.length - 1);
+          card.eventMode = 'static';
 
           if (start < 7) {
             return this.dealNextCard(start, col).then(() => resolve(true));
@@ -384,6 +386,10 @@ export default class Game {
   }
 
   public handleBankClick({ card, mouseEvent }: CardClickData) {
+    if (this.hand) {
+      return;
+    }
+
     console.log('bank clicked');
 
     this.handOffset = [
@@ -647,7 +653,9 @@ export default class Game {
         }
 
         // handle card clicks on the board
-        this.handleBoardClick(data);
+        if (!this.hand) {
+          this.handleBoardClick(data);
+        }
       }
     );
   }
@@ -655,6 +663,12 @@ export default class Game {
   public listenForDeckClick() {
     this.deckSprites.eventMode = 'static';
     this.deckSprites.addEventListener('pointertap', async (event) => {
+      if (this.isAnimatingDeckDraw) {
+        return;
+      }
+
+      this.isAnimatingDeckDraw = true;
+
       for (let i = 0; i < 3; i++) {
         if (!this.deck.length) {
           continue;
@@ -664,7 +678,10 @@ export default class Game {
         card.x = -STACK_GAP - CARD_W;
         card.y = -this.deckSprites.children.length * 0.5;
         await animateCard.bind(this)(card, i);
+        card.eventMode = 'static';
       }
+
+      this.isAnimatingDeckDraw = false;
 
       this.refreshBank();
 

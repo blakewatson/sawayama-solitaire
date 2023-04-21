@@ -25,6 +25,7 @@ export interface CardClickData {
 
 export default class Card extends Container {
   public cardSprite: Sprite | null = null;
+  public clickable = false;
   public id = '';
   public isHidden = false;
   public isTracking = false;
@@ -57,7 +58,7 @@ export default class Card extends Container {
     this.suit = suit;
     this.id = `${rank}_${suit}`;
 
-    this.eventMode = 'static';
+    this.eventMode = 'none';
 
     this.addListener('pointerdown', (event) => {
       PubSub.publish(GameEvent.CARD_CLICK, {
