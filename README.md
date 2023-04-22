@@ -2,9 +2,9 @@
 
 This a web version of the Sawayama Solitaire mini game in Zachtronics’ [Last Call BBS](https://www.zachtronics.com/last-call-bbs/) and the [Zachtronics Solitaire Collection](https://www.zachtronics.com/solitaire-collection/).
 
-I made this primarily so I could quickly pop open a browser tab and play a round. I’m also learning game development with [PixiJS](https://pixijs.com/) and this seemed like a good project for my skill level at the time (April 2023).
+I made this so I could quickly pop open a browser tab and play a game. I’m also learning game development with [PixiJS](https://pixijs.com/) and this seemed like a good project for my skill level at the time (April 2023).
 
-A playable version exists a <https://www.watsonbrosgames.com/solitaire/>.
+A playable version exists at <https://www.watsonbrosgames.com/solitaire/>.
 
 ## Rules
 
