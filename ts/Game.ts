@@ -539,6 +539,11 @@ export default class Game {
     }
 
     if (obj instanceof Cell) {
+      // the deck cell can only hold one card
+      if (obj.id === DECK_CELL_ID && this.hand.children.length > 1) {
+        return;
+      }
+
       // if this is the deck cell, place the card there
       if (obj.id === DECK_CELL_ID) {
         const cards = this.destroyHand();
