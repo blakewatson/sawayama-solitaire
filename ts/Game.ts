@@ -93,7 +93,9 @@ export default class Game {
     this.createBoard();
     // create the card bank
     this.initBank();
-    // init play again button
+
+    // init play again and reset buttons
+    document.querySelector('.reset-button').removeAttribute('hidden');
     document
       .querySelectorAll('.game-over button, .reset-button')
       .forEach((el) => {
