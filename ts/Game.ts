@@ -77,6 +77,8 @@ export default class Game {
       backgroundColor: new Color(COLOR_BG).toNumber()
     });
 
+    document.querySelector('.loader').remove();
+
     document
       .querySelector('#board')
       ?.append(this.app.view as HTMLCanvasElement);
