@@ -58,7 +58,6 @@ export default class Game {
   public foundation: AceTray[] = [];
   public gameElements: Container | null = null;
   public gratuitousSprites: Array<Container<Sprite>> = [];
-  public gratuitousSpritesLast = 0;
   public hand: Container<Card> | null = null;
   public handOffset: [number, number] = [0, 0];
   // the stack or cell where the hand was picked up from
@@ -135,10 +134,11 @@ export default class Game {
     //     tray.addChild(card);
     //   });
     // });
-
     // this.deck = [];
     // const card = this.foundation[0].children.at(-1);
+    // card.eventMode = 'static';
     // this.deckCell.addCard(card as Card);
+    // this.deckCell.eventMode = 'static';
     // this.deckSprites.removeChildren();
     // // listen for events
     // this.listenForCardClick();
@@ -817,13 +817,7 @@ export default class Game {
       this.hand.y = store.mousePosition[1] - this.handOffset[1];
     }
 
-    this.gratuitousSpritesLast += dt;
-
-    if (
-      this.animatedCards.children.length &&
-      this.gratuitousSpritesLast + dt > 1.5
-    ) {
-      this.gratuitousSpritesLast = 0;
+    if (this.animatedCards.children.length) {
       this.animatedCards.children.forEach((card, i) => {
         if (!this.gratuitousSprites[i]) {
           this.gratuitousSprites[i] = new Container();
