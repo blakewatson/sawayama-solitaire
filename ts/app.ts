@@ -1,5 +1,6 @@
-import { Assets, Spritesheet, Texture } from 'pixi.js';
+import { Application, Assets, Color, Spritesheet, Texture } from 'pixi.js';
 import deckData from '../images/deckData.json';
+import { COLOR_BG, VIEW_H, VIEW_W } from './constants';
 import Game from './Game';
 import { store } from './store';
 
@@ -18,5 +19,14 @@ async function init() {
   await sheet.parse();
   store.spritesheet = sheet;
 
-  game = new Game();
+  const app = new Application();
+
+  await app.init({
+    width: VIEW_W,
+    height: VIEW_H,
+    resolution: window.devicePixelRatio || 1,
+    backgroundColor: new Color(COLOR_BG).toNumber()
+  });
+
+  game = new Game(app);
 }

@@ -1,7 +1,6 @@
 import {
   Container,
   FederatedPointerEvent,
-  Resource,
   Sprite,
   Texture,
   Ticker
@@ -29,28 +28,22 @@ export default class Card extends Container {
   public id = '';
   public isHidden = false;
   public isTracking = false;
-  public ogX = 0;
-  public ogY = 0;
+
   public rank: Rank = Rank.Two;
   public suit: Suit = Suit.Hearts;
 
   // animation params
   public velocityX = 0;
   public velocityY = 0;
-  public ogVelocityY = 0;
   public gravity = 0;
 
   public constructor(rank: Rank, suit: Suit) {
     super();
-    const texture: Texture<Resource> =
-      store.spritesheet.textures[`${suit}_${rank}`];
+    const texture: Texture = store.spritesheet.textures[`${suit}_${rank}`];
 
     this.cardSprite = new Sprite(texture);
     this.cardSprite.width = CARD_W;
     this.cardSprite.height = CARD_H;
-
-    this.ogX = this.x;
-    this.ogY = this.y;
 
     this.addChild(this.cardSprite);
 
@@ -74,7 +67,9 @@ export default class Card extends Container {
     Ticker.shared.remove(this.update, this);
   }
 
-  public update(dt) {
+  public update(ticker: Ticker) {
+    const dt = ticker.deltaTime;
+
     this.x += dt * this.velocityX;
     this.y -= dt * this.velocityY;
     this.velocityY -= this.gravity;
@@ -86,8 +81,10 @@ export default class Card extends Container {
     }
 
     if (globalPosition.x > VIEW_W + 10) {
-      this.removeFromTicker();
       this.isHidden = true;
+      this.visible = false;
+      this.velocityX = 0;
+      this.removeFromTicker();
     }
   }
 }

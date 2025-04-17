@@ -1,9 +1,7 @@
 import anime from 'animejs';
 import {
   Application,
-  Color,
   Container,
-  DisplayObject,
   EventBoundary,
   Graphics,
   Rectangle,
@@ -20,7 +18,6 @@ import {
   CARD_OFFSET_HORIZONTAL,
   CARD_OFFSET_VERTICAL,
   CARD_W,
-  COLOR_BG,
   DECK_CELL_ID,
   DECK_POS,
   GameEvent,
@@ -50,7 +47,7 @@ export default class Game {
   public animatedCards: Container<Card> | null = null;
   public app: Application | null = null;
   public bank: Container<Card> | null = null;
-  public bankBg: Graphics | null = null;
+  public bankBg: Container<Graphics> | null = null;
   public board: Array<Stack> = [];
   public deck: Card[] = [];
   public deckCell: Cell | null = null;
@@ -68,19 +65,14 @@ export default class Game {
   public isGameOver = false;
   public placeholders: Container[] = [];
 
-  constructor() {
-    this.app = new Application({
-      width: VIEW_W,
-      height: VIEW_H,
-      resolution: window.devicePixelRatio || 1,
-      backgroundColor: new Color(COLOR_BG).toNumber()
-    });
+  constructor(app: Application) {
+    this.app = app;
 
     document.querySelector('.loader').remove();
 
     document
       .querySelector('#board')
-      ?.append(this.app.view as HTMLCanvasElement);
+      ?.append(this.app.canvas as HTMLCanvasElement);
 
     // init game elements container
     this.initGameElements();
@@ -110,42 +102,42 @@ export default class Game {
     this.gameElements.addChild(this.animatedCards);
 
     // start ticker
-    Ticker.shared.add(this.update.bind(this));
+    Ticker.shared.add(this.update, this);
 
     // deal all the cards to the board
-    this.dealNextCard(0).then(() => {
-      // listen for events
-      this.listenForCardClick();
-      // make the deck clickable
-      this.listenForDeckClick();
-      // move any aces
-      this.checkForFoundationCards();
-    });
+    // this.dealNextCard(0).then(() => {
+    //   // listen for events
+    //   this.listenForCardClick();
+    //   // make the deck clickable
+    //   this.listenForDeckClick();
+    //   // move any aces
+    //   this.checkForFoundationCards();
+    // });
 
     /**
      * The following commented code is for putting the game one play away from
      * endgame, making it easier to test endgame functions. To use it, comment
      * out the dealNextCard block above and uncomment the following.
      */
-    // Object.values(Suit).forEach((suit) => {
-    //   const tray = this.foundation.find((t) => t.suit === suit);
-    //   Object.values(Rank).forEach((rank) => {
-    //     const card = this.deck.find((card) => card.id === `${rank}_${suit}`);
-    //     tray.addChild(card);
-    //   });
-    // });
-    // this.deck = [];
-    // const card = this.foundation[0].children.at(-1);
-    // card.eventMode = 'static';
-    // this.deckCell.addCard(card as Card);
-    // this.deckCell.eventMode = 'static';
-    // this.deckSprites.removeChildren();
-    // // listen for events
-    // this.listenForCardClick();
-    // // make the deck clickable
-    // this.listenForDeckClick();
-    // // move any aces
-    // this.checkForFoundationCards();
+    Object.values(Suit).forEach((suit) => {
+      const tray = this.foundation.find((t) => t.suit === suit);
+      Object.values(Rank).forEach((rank) => {
+        const card = this.deck.find((card) => card.id === `${rank}_${suit}`);
+        tray.addChild(card);
+      });
+    });
+    this.deck = [];
+    const card = this.foundation[0].children.at(-1);
+    card.eventMode = 'static';
+    this.deckCell.addCard(card as Card);
+    this.deckCell.eventMode = 'static';
+    this.deckSprites.removeChildren();
+    // listen for events
+    this.listenForCardClick();
+    // make the deck clickable
+    this.listenForDeckClick();
+    // move any aces
+    this.checkForFoundationCards();
   }
 
   public addCardToAceTray(card: Card, duration = CARD_ANIM_SPEED_MS * 2) {
@@ -177,7 +169,7 @@ export default class Game {
     });
   }
 
-  public addChild(...children: DisplayObject[]) {
+  public addChild(...children: Container[]) {
     this.app?.stage.addChild(...children);
   }
 
@@ -254,7 +246,9 @@ export default class Game {
       card.x = DECK_POS.x;
       card.y = DECK_POS.y - this.deckSprites.children.length * 0.5;
 
-      this.deckSprites.children.pop().destroy();
+      if (this.deckSprites.children.length) {
+        this.deckSprites.children.pop().destroy(); // TODO this crashes on reset
+      }
 
       const stack = this.board[col];
       this.gameElements.addChild(card);
@@ -361,14 +355,12 @@ export default class Game {
 
       if (!tray.isEmpty()) {
         const card = this.foundation[trayNum % 4].children.pop() as Card;
-        const position = card.getGlobalPosition();
         this.animatedCards.addChild(card);
 
-        card.x = position.x;
-        card.y = position.y;
+        card.x = tray.x;
+        card.y = tray.y;
         card.velocityX = rand(1.5, 4);
         card.velocityY = rand(1.5, 3) * 1 + (trayNum % 4) * 1.1;
-        card.ogVelocityY = card.velocityY;
         card.gravity = rand(0.05, 0.15);
 
         await (function () {
@@ -478,14 +470,12 @@ export default class Game {
 
     const boundary = new EventBoundary(this.gameElements);
     const point = card.getGlobalPosition();
-    const obj: Card | Cell | DisplayObject = boundary.hitTest(
+    const obj: Card | Cell | Container = boundary.hitTest(
       point.x + CARD_W / 2,
       point.y + CARD_H / 4
     );
 
     this.hand.eventMode = 'static';
-
-    console.log('hand hit test', obj, obj.name);
 
     // a card was clicked
     if (obj instanceof Card) {
@@ -582,7 +572,7 @@ export default class Game {
       return;
     }
 
-    if (obj.name === 'bank_bg' && this.handOrigin === BANK_STACK_ID) {
+    if (obj.label === 'bank_bg' && this.handOrigin === BANK_STACK_ID) {
       console.log('bank_bg play');
       const cards = this.destroyHand();
       this.bank.addChild(cards[0]);
@@ -593,9 +583,8 @@ export default class Game {
   public initAceTray() {
     // create the dark background
     const bg = new Graphics();
-    bg.beginFill('#00000033');
-    bg.drawRect(0, 0, ACE_TRAY_W, VIEW_H);
-    bg.endFill();
+    bg.rect(0, 0, ACE_TRAY_W, VIEW_H);
+    bg.fill('#00000033');
     this.gameElements.addChild(bg);
 
     Object.values(Suit).forEach((suit, idx) => {
@@ -612,16 +601,17 @@ export default class Game {
     this.bank.x = DECK_POS.x + CARD_W + STACK_GAP;
     this.bank.y = DECK_POS.y;
 
-    this.bankBg = new Graphics();
-    this.bankBg.name = 'bank_bg';
-    this.bankBg.beginFill('#00000011');
-    this.bankBg.drawRect(
+    this.bankBg = new Container();
+    this.bankBg.label = 'bank_bg';
+    const bankBgGraphic = new Graphics();
+    bankBgGraphic.rect(
       this.bank.x,
       this.bank.y,
       VIEW_W - this.bank.x - STACK_GAP,
       CARD_H
     );
-    this.bankBg.endFill();
+    bankBgGraphic.fill('#00000011');
+    this.bankBg.addChild(bankBgGraphic);
 
     this.bank.eventMode = 'static';
     this.bankBg.eventMode = 'static';
@@ -631,8 +621,8 @@ export default class Game {
 
   public initGameElements() {
     this.gameElements = new Container();
-    this.gameElements.width = this.app.view.width;
-    this.gameElements.height = this.app.view.height;
+    this.gameElements.width = this.app.canvas.width;
+    this.gameElements.height = this.app.canvas.height;
     this.gameElements.hitArea = new Rectangle(0, 0, VIEW_W, VIEW_H);
 
     this.gameElements.eventMode = 'static';
@@ -811,7 +801,7 @@ export default class Game {
     });
   }
 
-  public update(dt) {
+  public update(ticker: Ticker) {
     if (this.hand && !this.hand.destroyed) {
       this.hand.x = store.mousePosition[0] - this.handOffset[0];
       this.hand.y = store.mousePosition[1] - this.handOffset[1];
@@ -828,15 +818,14 @@ export default class Game {
           return;
         }
 
-        const sprite = new Sprite(
-          store.spritesheet.textures[`${card.suit}_${card.rank}`]
-        );
-        this.gratuitousSprites[i].addChild(sprite);
+        const sprite = Sprite.from(card.cardSprite.texture);
 
+        sprite.eventMode = 'static';
         sprite.x = card.x;
         sprite.y = card.y;
         sprite.width = CARD_W;
         sprite.height = CARD_H;
+        this.gratuitousSprites[i].addChild(sprite);
       });
     }
   }
