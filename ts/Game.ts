@@ -105,39 +105,39 @@ export default class Game {
     Ticker.shared.add(this.update, this);
 
     // deal all the cards to the board
-    // this.dealNextCard(0).then(() => {
-    //   // listen for events
-    //   this.listenForCardClick();
-    //   // make the deck clickable
-    //   this.listenForDeckClick();
-    //   // move any aces
-    //   this.checkForFoundationCards();
-    // });
+    this.dealNextCard(0).then(() => {
+      // listen for events
+      this.listenForCardClick();
+      // make the deck clickable
+      this.listenForDeckClick();
+      // move any aces
+      this.checkForFoundationCards();
+    });
 
     /**
      * The following commented code is for putting the game one play away from
      * endgame, making it easier to test endgame functions. To use it, comment
      * out the dealNextCard block above and uncomment the following.
      */
-    Object.values(Suit).forEach((suit) => {
-      const tray = this.foundation.find((t) => t.suit === suit);
-      Object.values(Rank).forEach((rank) => {
-        const card = this.deck.find((card) => card.id === `${rank}_${suit}`);
-        tray.addChild(card);
-      });
-    });
-    this.deck = [];
-    const card = this.foundation[0].children.at(-1);
-    card.eventMode = 'static';
-    this.deckCell.addCard(card as Card);
-    this.deckCell.eventMode = 'static';
-    this.deckSprites.removeChildren();
-    // listen for events
-    this.listenForCardClick();
-    // make the deck clickable
-    this.listenForDeckClick();
-    // move any aces
-    this.checkForFoundationCards();
+    // Object.values(Suit).forEach((suit) => {
+    //   const tray = this.foundation.find((t) => t.suit === suit);
+    //   Object.values(Rank).forEach((rank) => {
+    //     const card = this.deck.find((card) => card.id === `${rank}_${suit}`);
+    //     tray.addChild(card);
+    //   });
+    // });
+    // this.deck = [];
+    // const card = this.foundation[0].children.at(-1);
+    // card.eventMode = 'static';
+    // this.deckCell.addCard(card as Card);
+    // this.deckCell.eventMode = 'static';
+    // this.deckSprites.removeChildren();
+    // // listen for events
+    // this.listenForCardClick();
+    // // make the deck clickable
+    // this.listenForDeckClick();
+    // // move any aces
+    // this.checkForFoundationCards();
   }
 
   public addCardToAceTray(card: Card, duration = CARD_ANIM_SPEED_MS * 2) {
@@ -807,26 +807,30 @@ export default class Game {
       this.hand.y = store.mousePosition[1] - this.handOffset[1];
     }
 
-    if (this.animatedCards.children.length) {
-      this.animatedCards.children.forEach((card, i) => {
-        if (!this.gratuitousSprites[i]) {
-          this.gratuitousSprites[i] = new Container();
-          this.gameElements.addChild(this.gratuitousSprites[i]);
-        }
-
-        if (card.isHidden) {
-          return;
-        }
-
-        const sprite = Sprite.from(card.cardSprite.texture);
-
-        sprite.eventMode = 'static';
-        sprite.x = card.x;
-        sprite.y = card.y;
-        sprite.width = CARD_W;
-        sprite.height = CARD_H;
-        this.gratuitousSprites[i].addChild(sprite);
-      });
+    if (!this.animatedCards.children.length) {
+      return;
     }
+
+    this.animatedCards.children.forEach((card, i) => {
+      if (!this.gratuitousSprites[i]) {
+        this.gratuitousSprites[i] = new Container();
+        this.gameElements.addChild(this.gratuitousSprites[i]);
+      }
+
+      if (card.isHidden && !this.gratuitousSprites[i].isCachedAsTexture) {
+        this.gratuitousSprites[i].cacheAsTexture(true);
+      } else if (card.isHidden) {
+        return;
+      }
+
+      const sprite = Sprite.from(card.cardSprite.texture);
+
+      sprite.eventMode = 'static';
+      sprite.x = card.x;
+      sprite.y = card.y;
+      sprite.width = CARD_W;
+      sprite.height = CARD_H;
+      this.gratuitousSprites[i].addChild(sprite);
+    });
   }
 }
