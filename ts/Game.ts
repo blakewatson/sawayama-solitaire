@@ -51,7 +51,7 @@ export default class Game {
   public board: Array<Stack> = [];
   public deck: Card[] = [];
   public deckCell: Cell | null = null;
-  public deckSprites: Container | null = null;
+  public deckSprites: Container<Sprite> | null = null;
   public foundation: AceTray[] = [];
   public gameElements: Container | null = null;
   public gratuitousSprites: Array<Container<Sprite>> = [];
@@ -246,9 +246,7 @@ export default class Game {
       card.x = DECK_POS.x;
       card.y = DECK_POS.y - this.deckSprites.children.length * 0.5;
 
-      if (this.deckSprites.children.length) {
-        this.deckSprites.children.pop().destroy(); // TODO this crashes on reset
-      }
+      this.deckSprites.removeChildAt(this.deckSprites.children.length - 1);
 
       const stack = this.board[col];
       this.gameElements.addChild(card);
@@ -713,7 +711,9 @@ export default class Game {
             duration: CARD_ANIM_SPEED_MS,
             easing: 'easeOutSine',
             changeBegin: () => {
-              this.deckSprites.children.pop().destroy();
+              this.deckSprites.removeChildAt(
+                this.deckSprites.children.length - 1
+              );
             },
             complete: () => {
               resolve(true);
