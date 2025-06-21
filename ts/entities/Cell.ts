@@ -42,7 +42,7 @@ export default class Cell extends Container {
     }
     const card = this.card;
     this.card = null;
-    this.children.unshift();
+    this.removeChild(card);
     return card;
   }
 }
