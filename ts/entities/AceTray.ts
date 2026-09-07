@@ -1,5 +1,5 @@
 import { ColorMatrixFilter, Container, Sprite, Texture } from 'pixi.js';
-import { CARD_H, CARD_W, Rank, Suit } from '../constants';
+import { Rank, Suit } from '../constants';
 import { store } from '../store';
 import { getNumericalRank } from '../utils';
 import Card from './Card';
@@ -17,11 +17,11 @@ export default class AceTray extends Container<Card | Sprite> {
     this.eventMode = 'static';
 
     // create the background placeholder sprite
-    const texture: Texture = store.spritesheet.textures[`${suit}_${Rank.Ace}`];
+    const texture: Texture = store.spritesheet!.textures[`${suit}_${Rank.Ace}`];
 
     const sprite = new Sprite(texture);
-    sprite.width = CARD_W;
-    sprite.height = CARD_H;
+    sprite.width = store.layout.CARD_W;
+    sprite.height = store.layout.CARD_H;
     sprite.alpha = 0.2;
 
     const filter = new ColorMatrixFilter();

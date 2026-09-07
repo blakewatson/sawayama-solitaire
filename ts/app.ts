@@ -1,7 +1,7 @@
 import { Application, Assets, Color, Spritesheet, Texture } from 'pixi.js';
 import deckData from '../images/deckData.json';
-import { COLOR_BG, VIEW_H, VIEW_W } from './constants';
-import Game from './Game';
+import { COLOR_BG } from './constants';
+import Game from './Game2';
 import { store } from './store';
 
 export interface IAssets {
@@ -9,6 +9,7 @@ export interface IAssets {
 }
 
 export let game: Game | null = null;
+export let app: Application | null = null;
 
 init();
 
@@ -19,11 +20,15 @@ async function init() {
   await sheet.parse();
   store.spritesheet = sheet;
 
-  const app = new Application();
+  app = new Application();
+
+  if (window.matchMedia('(min-width: 980px)').matches) {
+    store.makeDesktopLayout();
+  }
 
   await app.init({
-    width: VIEW_W,
-    height: VIEW_H,
+    width: store.layout.VIEW_W,
+    height: store.layout.VIEW_H,
     resolution: window.devicePixelRatio || 1,
     backgroundColor: new Color(COLOR_BG).toNumber()
   });

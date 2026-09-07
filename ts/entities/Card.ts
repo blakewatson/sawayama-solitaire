@@ -1,20 +1,15 @@
+import { DropShadowFilter } from 'pixi-filters';
 import {
   Container,
   FederatedPointerEvent,
+  Point,
   Sprite,
   Texture,
   Ticker
 } from 'pixi.js';
 import PubSub from 'pubsub-js';
-import {
-  CARD_H,
-  CARD_W,
-  GameEvent,
-  Rank,
-  Suit,
-  VIEW_H,
-  VIEW_W
-} from '../constants';
+import { app } from '../app';
+import { GameEvent, Rank, Suit } from '../constants';
 import { store } from '../store';
 
 export interface CardClickData {
@@ -23,27 +18,40 @@ export interface CardClickData {
 }
 
 export default class Card extends Container {
-  public cardSprite: Sprite | null = null;
-  public clickable = false;
-  public id = '';
-  public isHidden = false;
-  public isTracking = false;
+  cardSprite: Sprite | null = null;
+  clickable = false;
+  elevation = 1;
+  id = '';
+  isHidden = false;
+  isTracking = false;
 
-  public rank: Rank = Rank.Two;
-  public suit: Suit = Suit.Hearts;
+  rank: Rank = Rank.Two;
+  suit: Suit = Suit.Hearts;
 
   // animation params
-  public velocityX = 0;
-  public velocityY = 0;
-  public gravity = 0;
+  velocityX = 0;
+  velocityY = 0;
+  gravity = 0;
 
-  public constructor(rank: Rank, suit: Suit) {
+  constructor(rank: Rank, suit: Suit) {
     super();
+
+    // set up the card image
     const texture: Texture = store.spritesheet.textures[`${suit}_${rank}`];
 
     this.cardSprite = new Sprite(texture);
-    this.cardSprite.width = CARD_W;
-    this.cardSprite.height = CARD_H;
+    this.cardSprite.width = store.layout.CARD_W;
+    this.cardSprite.height = store.layout.CARD_H;
+
+    // initial drop shadow
+    const shadow = new DropShadowFilter({
+      alpha: 0.5,
+      blur: 1,
+      offset: new Point(0, this.elevation),
+      resolution: app.renderer.resolution
+    });
+
+    this.filters = [shadow];
 
     this.addChild(this.cardSprite);
 
@@ -63,11 +71,11 @@ export default class Card extends Container {
     Ticker.shared.add(this.update, this);
   }
 
-  public removeFromTicker() {
+  removeFromTicker() {
     Ticker.shared.remove(this.update, this);
   }
 
-  public update(ticker: Ticker) {
+  update(ticker: Ticker) {
     const dt = ticker.deltaTime;
 
     this.x += dt * this.velocityX;
@@ -75,6 +83,8 @@ export default class Card extends Container {
     this.velocityY -= this.gravity;
 
     const globalPosition = this.getGlobalPosition();
+
+    const { CARD_H, VIEW_H, VIEW_W } = store.layout;
 
     if (globalPosition.y + CARD_H > VIEW_H) {
       this.velocityY = Math.abs(this.velocityY / 1.35);

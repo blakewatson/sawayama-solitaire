@@ -17,8 +17,8 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 980px;
-  height: 678px;
+  /*  width: 980px;
+  height: 678px;*/
   background: #505459;
 }
 
@@ -27,18 +27,23 @@ body {
   max-width: 100%;
 }
 
-.reset-button {
-  position: absolute;
-  top: 18px;
-  right: 18px;
+[type='button'] {
   appearance: none;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid #ffffff99;
   border-radius: 5px;
-  padding: 0.5em 1em;
+  padding: 0.25em 0.5em;
   font-size: 14px;
   font-weight: bold;
-  color: white;
-  background-color: #346186;
+  color: #222;
+  background-color: #f2f4f6;
+}
+
+.buttons {
+  position: absolute;
+  top: 9px;
+  right: 18px;
+  display: flex;
+  gap: 1rem;
 }
 
 .game-over {

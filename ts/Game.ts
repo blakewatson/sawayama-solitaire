@@ -792,7 +792,7 @@ export default class Game {
     this.deckSprites.removeChildren();
 
     this.deck.forEach((card, i) => {
-      const sprite = new Sprite(store.spritesheet.textures['back_2']);
+      const sprite = new Sprite(store.spritesheet.textures['back_red']);
       sprite.width = CARD_W;
       sprite.height = CARD_H;
       sprite.x = 0;

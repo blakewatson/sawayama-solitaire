@@ -1,23 +1,23 @@
 import { Container } from 'pixi.js';
-import { CARD_OFFSET_VERTICAL } from '../constants';
+import { store } from '../store';
 import Card from './Card';
 
 export default class Stack extends Container<Card> {
-  public id = 0;
+  id = 0;
 
-  public constructor(id: number) {
+  constructor(id: number) {
     super();
     this.id = id;
   }
 
-  public addCards(...cards: Card[]) {
+  addCards(...cards: Card[]) {
     this.addChild(...cards);
     this.alignCards();
   }
 
-  public alignCards() {
+  alignCards() {
     this.children.forEach((card, i) => {
-      card.y = i * CARD_OFFSET_VERTICAL;
+      card.y = i * store.layout.CARD_OFFSET_VERTICAL;
       card.x = 0;
     });
   }

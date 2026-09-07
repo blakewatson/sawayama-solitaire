@@ -1,22 +1,29 @@
 import { Container, Graphics } from 'pixi.js';
+import { store } from '../store';
 import Card from './Card';
+import Stack from './Stack';
 
 export default class Cell extends Container {
-  public card: Card | null = null;
-  public graphics: Graphics = new Graphics();
-  public id: number = 0;
+  // card: Card | null = null;
+  graphics: Graphics = new Graphics();
+  id: number = 0;
+  stack: Stack | null = null;
 
-  public constructor(
+  constructor(
     id: number,
     x: number,
     y: number,
-    width: number,
-    height: number
+    width?: number,
+    height?: number
   ) {
     super();
+
+    width = width || store.layout.CARD_W;
+    height = height || store.layout.CARD_H;
+
     this.id = id;
     this.graphics.rect(0, 0, width, height);
-    this.graphics.fill('#00000011');
+    this.graphics.fill('#00000022');
     this.graphics.x = 0;
     this.graphics.y = 0;
     this.graphics.width = width;
@@ -27,22 +34,38 @@ export default class Cell extends Container {
     this.width = width;
     this.height = height;
     this.addChild(this.graphics);
+
+    this.stack = new Stack(this.id);
+    this.stack.eventMode = 'static';
+    this.addChild(this.stack);
   }
 
-  public addCard(card: Card) {
-    this.card = card;
-    this.addChild(this.card);
-    this.card.x = 0;
-    this.card.y = 0;
+  get count() {
+    return this.stack.children.length;
   }
 
-  public removeCard() {
-    if (!this.card) {
+  get nextCardPosY() {
+    return this.y + store.layout.CARD_OFFSET_VERTICAL * this.count;
+  }
+
+  addCard(card: Card) {
+    this.stack.addCards(card);
+  }
+
+  addCards(...cards: Card[]) {
+    this.stack.addCards(...cards);
+  }
+
+  alignCards() {
+    this.stack.alignCards();
+  }
+
+  popCard() {
+    if (!this.stack.children.length) {
       return;
     }
-    const card = this.card;
-    this.card = null;
-    this.removeChild(card);
+    const card = this.stack.children.pop();
+    // this.removeChild(card);
     return card;
   }
 }

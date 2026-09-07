@@ -5,19 +5,23 @@
   "main": "index.js",
   "scripts": {
     "build": "esbuild ts/app.ts --outfile=js/app.js --bundle --minify --target=es2017",
-    "watch": "esbuild ts/app.ts --outfile=js/app.js --bundle --servedir=. --serve=8989"
+    "watch": "esbuild ts/app.ts --outfile=js/app.js --bundle --servedir=. --serve=8989",
+    "serve": "npm run watch"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "animejs": "^3.2.1",
+    "animejs": "^4",
     "esbuild": "0.17.14",
-    "pixi.js": "^8",
-    "pubsub-js": "^1.9.4"
+    "pixi-filters": "^6.1.5",
+    "pixi.js": "^8.20.1",
+    "pubsub-js": "^1.9.4",
+    "typescript": "^5.9.3"
   },
   "devDependencies": {
     "@types/animejs": "^3.1.7",
+    "@types/pubsub-js": "^1.8.6",
     "prettier": "2.8.7"
   }
 }
