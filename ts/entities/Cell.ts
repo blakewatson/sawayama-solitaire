@@ -47,12 +47,19 @@ export default class Cell extends Container {
     this.stack.eventMode = 'static';
     this.addChild(this.stack);
 
-    this.addEventListener('pointertap', (event) => {
-      PubSub.publish(GameEvent.CELL_CLICK, {
-        cell: this,
-        mouseEvent: event
-      });
-    });
+    // Using the DOM style method on purpose so we can attach this handler to
+    // the capture phase. This is needed because main scene clicks need the
+    // option to stop propagation.
+    this.addEventListener(
+      'pointerdown',
+      (event) => {
+        PubSub.publish(GameEvent.CELL_CLICK, {
+          cell: this,
+          mouseEvent: event
+        });
+      },
+      { capture: true }
+    );
   }
 
   get count() {

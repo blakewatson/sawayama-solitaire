@@ -34,4 +34,6 @@ async function init() {
   });
 
   game = new Game(app);
+  // @ts-ignore
+  window.game = game;
 }

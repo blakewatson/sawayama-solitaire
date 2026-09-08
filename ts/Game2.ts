@@ -4,7 +4,6 @@ import {
   Application,
   Container,
   EventBoundary,
-  FederatedPointerEvent,
   Graphics,
   Point,
   Rectangle,
@@ -88,7 +87,6 @@ export default class Game {
       this.listenForCardClick();
       this.listenForCellClick();
       this.listenForDeckClick();
-      this.listenForMainSceneClick();
       this.initDomUi();
     });
 
@@ -290,12 +288,49 @@ export default class Game {
 
     const card = this.hand.children[0];
 
+    // This checks what, if anything, the top center-ish area of the topmost
+    // card in the hand is intersecting.
     const boundary = new EventBoundary(this.scene);
     const point = card.getGlobalPosition();
     const obj: Card | Cell | Container = boundary.hitTest(
       point.x + store.layout.CARD_W / 2,
       point.y + store.layout.CARD_H / 4
     );
+
+    console.log('obj', obj);
+
+    // If the target is the bank and the bank is the origin of this hand, allow
+    // putting it back.
+    if (
+      obj.label === BANK_LABEL &&
+      this.handOrigin === HAND_STACK_ID &&
+      this.hand.count === 1
+    ) {
+      this.bank.reparentChild(this.hand.children[0]);
+      return;
+    }
+
+    // Otherwise, see what cell is being targeted.
+    let targetCell: Cell | null = null;
+    let targetCellId = -1;
+
+    if (obj instanceof Card) {
+      targetCell = getCellFromCard(obj) ?? null;
+      targetCellId = targetCell?.id ?? -1;
+    }
+
+    if (obj instanceof Cell) {
+      targetCell = obj;
+      targetCellId = targetCell.id;
+    }
+
+    // If the target is where the hand originally came from, allow the user to
+    // put it back.
+    if (targetCellId === this.handOrigin) {
+      targetCell.reparentCard(...this.hand.children);
+      targetCell.alignCards();
+      return;
+    }
 
     if (
       obj instanceof Card &&
@@ -305,6 +340,7 @@ export default class Game {
       const cell = getCellFromCard(obj);
       cell.reparentCard(...this.hand.children);
       cell.alignCards();
+      return;
     }
   }
 
@@ -424,17 +460,31 @@ export default class Game {
     this.scene.eventMode = 'static';
     this.scene.interactiveChildren = true;
 
-    this.scene.addListener('pointermove', (event) => {
+    this.scene.addEventListener('pointermove', (event) => {
       store.mousePosition = [
         Math.round(event.globalX),
         Math.round(event.globalY)
       ];
     });
 
-    this.scene.addListener('pointerdown', (event) => {
-      console.log('main scene click', event);
-      PubSub.publish(GameEvent.MAIN_SCENE_CLICK, event);
-    });
+    // Using the DOM style method on purpose so we can attach this handler to
+    // the capture phase. This is needed because main scene clicks need the
+    // option to stop propagation.
+    this.scene.addEventListener(
+      'pointerdown',
+      (event) => {
+        console.log('scene click', event);
+        if (!this.hand.count) {
+          return;
+        }
+
+        event.stopImmediatePropagation();
+        console.log('STOPPED PROPAGATION');
+
+        this.handleHandClick();
+      },
+      { capture: true }
+    );
 
     if (!this.app) {
       return;
@@ -458,6 +508,10 @@ export default class Game {
     PubSub.subscribe(
       GameEvent.CARD_CLICK,
       (msg: string, data: CardClickData) => {
+        if (this.hand.count) {
+          return;
+        }
+
         console.log(`clicked ${data.card.rank} of ${data.card.suit}`);
 
         if (isCardOnBoard(data.card)) {
@@ -471,6 +525,9 @@ export default class Game {
     PubSub.subscribe(
       GameEvent.CELL_CLICK,
       (msg: string, data: CellClickData) => {
+        if (this.hand.count) {
+          return;
+        }
         console.log('clicked cell', data.cell);
       }
     );
@@ -494,20 +551,6 @@ export default class Game {
         cards
       });
     });
-  }
-
-  listenForMainSceneClick() {
-    PubSub.subscribe(
-      GameEvent.MAIN_SCENE_CLICK,
-      (msg: string, event: FederatedPointerEvent) => {
-        if (!this.hand.count) {
-          return;
-        }
-        console.log('scene click', msg, event);
-
-        this.handleHandClick();
-      }
-    );
   }
 
   async moveAdd(move: GameMove, resetCache = true) {

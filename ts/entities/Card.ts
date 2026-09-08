@@ -61,12 +61,20 @@ export default class Card extends Container {
 
     this.eventMode = 'static';
 
-    this.addListener('pointerdown', (event) => {
-      PubSub.publish(GameEvent.CARD_CLICK, {
-        card: this,
-        mouseEvent: event
-      });
-    });
+    // Using the DOM style method on purpose so we can attach this handler to
+    // the capture phase. This is needed because main scene clicks need the
+    // option to stop propagation.
+    this.addEventListener(
+      'pointerdown',
+      (event) => {
+        console.log('card pointerdown', event);
+        PubSub.publish(GameEvent.CARD_CLICK, {
+          card: this,
+          mouseEvent: event
+        });
+      },
+      { capture: true }
+    );
 
     Ticker.shared.add(this.update, this);
   }

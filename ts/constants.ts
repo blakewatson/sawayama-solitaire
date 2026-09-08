@@ -23,6 +23,7 @@ export enum Rank {
 
 export const BANK_LABEL = 'BANK';
 export const BOARD_CELL_LABEL = 'BOARD_CELL';
+export const CARD_LABEL = 'CARD';
 export const CELL_STACK_LABEL = 'CELL_STACK';
 export const DECK_CELL_LABEL = 'DECK_CELL';
 export const HAND_STACK_LABEL = 'HAND_STACK';
