@@ -59,7 +59,7 @@ export default class Card extends Container {
     this.suit = suit;
     this.id = `${rank}_${suit}`;
 
-    this.eventMode = 'none';
+    this.eventMode = 'static';
 
     this.addListener('pointerdown', (event) => {
       PubSub.publish(GameEvent.CARD_CLICK, {

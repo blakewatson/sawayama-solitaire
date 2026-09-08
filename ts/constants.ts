@@ -21,6 +21,12 @@ export enum Rank {
   King = 'k'
 }
 
+export const BANK_LABEL = 'BANK';
+export const BOARD_CELL_LABEL = 'BOARD_CELL';
+export const CELL_STACK_LABEL = 'CELL_STACK';
+export const DECK_CELL_LABEL = 'DECK_CELL';
+export const HAND_STACK_LABEL = 'HAND_STACK';
+
 // View
 
 // export const VIEW_W = 1200;
@@ -32,10 +38,14 @@ export const COLOR_BG = '#505459';
 // Events
 export enum GameEvent {
   CARD_CLICK = 'CARD_CLICK',
-  RESIZE = 'RESIZE'
+  CELL_CLICK = 'CELL_CLICK',
+  RESIZE = 'RESIZE',
+  MAIN_SCENE_CLICK = 'MAIN_SCENE_CLICK'
 }
 
 // Misc
 export const BANK_STACK_ID = 7;
 export const DECK_CELL_ID = 8;
+export const HAND_STACK_ID = 9;
+
 export const CARD_ANIM_SPEED_MS = 100;

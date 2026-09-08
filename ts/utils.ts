@@ -1,7 +1,26 @@
 import { Container } from 'pixi.js';
-import { Rank, Suit } from './constants';
+import { BANK_LABEL, BOARD_CELL_LABEL, Rank, Suit } from './constants';
 import AceTray from './entities/AceTray';
 import Card from './entities/Card';
+import Cell from './entities/Cell';
+
+export const cardsAreSequential = (cards: Card[]) => {
+  return cards.every((card, i) => {
+    if (!i) {
+      return true;
+    }
+
+    return isFirstCardAllowedOnSecond(card, cards[i - 1]);
+  });
+};
+
+export const getCellFromCard = (card: Card): Cell | null => {
+  if (card.parent.label === BANK_LABEL) {
+    return null;
+  }
+
+  return card.parent.parent as Cell;
+};
 
 export const getIndexOfSetInStack = (
   stack: Container<Card>,
@@ -34,6 +53,15 @@ export const getIndexOfSetInStack = (
 
 export const getNumericalRank = (rank: Rank): number =>
   Object.values(Rank).findIndex((r) => r === rank);
+
+export const isCardOnBoard = (card: Card) => {
+  if (card.parent.label === BANK_LABEL) {
+    return false;
+  }
+
+  // If it's not in the bank, then it belongs to a stack which belongs to a cell
+  return card.parent.parent.label === BOARD_CELL_LABEL;
+};
 
 export const isFirstCardAllowedOnSecond = (card1: Card, card2: Card) => {
   let suitsMatch =
@@ -110,10 +138,4 @@ export function shuffleCards(cards: Card[]): Card[] {
 }
 
 export const stackIsSequential = (stack: Container<Card>): boolean =>
-  stack.children.every((card, i) => {
-    if (!i) {
-      return true;
-    }
-
-    return isFirstCardAllowedOnSecond(card, stack.children[i - 1]);
-  });
+  cardsAreSequential(stack.children);

@@ -4,9 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "esbuild ts/app.ts --outfile=js/app.js --bundle --minify --target=es2017",
     "watch": "esbuild ts/app.ts --outfile=js/app.js --bundle --servedir=. --serve=8989",
-    "serve": "npm run watch"
+    "typecheck": "tsc --noEmit --skipLibCheck",
+    "typecheck:watch": "tsc --noEmit --skipLibCheck --watch --preserveWatchOutput",
+    "serve": "concurrently --kill-others --names esbuild,types \"npm:watch\" \"npm:typecheck:watch\""
   },
   "keywords": [],
   "author": "",
@@ -22,6 +23,7 @@
   "devDependencies": {
     "@types/animejs": "^3.1.7",
     "@types/pubsub-js": "^1.8.6",
+    "concurrently": "^10.0.5",
     "prettier": "2.8.7"
   }
 }

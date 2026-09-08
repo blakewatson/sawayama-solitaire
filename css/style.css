@@ -17,8 +17,9 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  /*  width: 980px;
-  height: 678px;*/
+  /* width: 980px; */
+  /* height: 606px; */
+  aspect-ratio: 1800 / 1212;
   background: #505459;
 }
 

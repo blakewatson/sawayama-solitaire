@@ -1,7 +1,13 @@
-import { Container, Graphics } from 'pixi.js';
+import { Container, FederatedPointerEvent, Graphics } from 'pixi.js';
+import { CELL_STACK_LABEL, GameEvent } from '../constants';
 import { store } from '../store';
 import Card from './Card';
 import Stack from './Stack';
+
+export interface CellClickData {
+  cell: Cell;
+  mouseEvent: FederatedPointerEvent;
+}
 
 export default class Cell extends Container {
   // card: Card | null = null;
@@ -13,6 +19,7 @@ export default class Cell extends Container {
     id: number,
     x: number,
     y: number,
+    label?: string,
     width?: number,
     height?: number
   ) {
@@ -22,6 +29,7 @@ export default class Cell extends Container {
     height = height || store.layout.CARD_H;
 
     this.id = id;
+    this.label = label || id.toString();
     this.graphics.rect(0, 0, width, height);
     this.graphics.fill('#00000022');
     this.graphics.x = 0;
@@ -35,13 +43,20 @@ export default class Cell extends Container {
     this.height = height;
     this.addChild(this.graphics);
 
-    this.stack = new Stack(this.id);
+    this.stack = new Stack(this.id, CELL_STACK_LABEL);
     this.stack.eventMode = 'static';
     this.addChild(this.stack);
+
+    this.addEventListener('pointertap', (event) => {
+      PubSub.publish(GameEvent.CELL_CLICK, {
+        cell: this,
+        mouseEvent: event
+      });
+    });
   }
 
   get count() {
-    return this.stack.children.length;
+    return this.stack.count;
   }
 
   get nextCardPosY() {
@@ -60,12 +75,23 @@ export default class Cell extends Container {
     this.stack.alignCards();
   }
 
+  getCard(id: string) {
+    return this.stack.children.find((c) => c.id === id);
+  }
+
+  isSequentialFrom(card: Card) {
+    return this.stack.isSequentialFrom(card);
+  }
+
   popCard() {
-    if (!this.stack.children.length) {
-      return;
-    }
-    const card = this.stack.children.pop();
-    // this.removeChild(card);
-    return card;
+    return this.stack.popCard();
+  }
+
+  reparentCard(...cards: Card[]) {
+    return this.stack.reparentChild(...cards);
+  }
+
+  takeFrom(card: Card) {
+    return this.stack.takeFrom(card);
   }
 }

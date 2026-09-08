@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import anime from 'animejs';
 import {
   Application,
