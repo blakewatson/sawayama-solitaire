@@ -1,11 +1,11 @@
 import { effect, Signal, signal } from '@preact/signals-core';
-import { Container, Spritesheet } from 'pixi.js';
-import { Suit } from './constants';
+import { Spritesheet } from 'pixi.js';
+import { BANK_LABEL, Suit } from './constants';
 import Card from './entities/Card';
 import Cell from './entities/Cell';
 
 export enum MoveType {
-  CARD_MOVE = 'CARD_MOVE',
+  BANK_MOVE = 'BANK_MOVE',
   DECK_DRAW = 'DECK_DRAW',
   CELL_MOVE = 'CELL_MOVE'
 }
@@ -15,8 +15,7 @@ interface BaseMove {
 }
 
 export type BankMove = BaseMove & {
-  type: MoveType.CARD_MOVE;
-  from: Container;
+  type: MoveType.BANK_MOVE;
   to: Cell;
 };
 
@@ -126,10 +125,8 @@ function formatCards(cards: Card[]) {
 
 function formatMove(move: GameMove) {
   switch (move.type) {
-    case MoveType.CARD_MOVE:
-      return `CARD_MOVE: ${move.from.label || 'container'} -> cell ${
-        move.to.id
-      }`;
+    case MoveType.BANK_MOVE:
+      return `BANK_MOVE: ${BANK_LABEL || 'container'} -> cell ${move.to.id}`;
     case MoveType.DECK_DRAW:
       return `DECK_DRAW: ${formatCards(move.cards)}`;
     case MoveType.CELL_MOVE:

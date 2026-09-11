@@ -13,7 +13,9 @@ import {
 import PubSub from 'pubsub-js';
 import { app } from './app';
 import {
+  BANK_BG,
   BANK_LABEL,
+  BANK_STACK_ID,
   BOARD_CELL_LABEL,
   CARD_ANIM_SPEED_MS,
   DECK_CELL_ID,
@@ -26,9 +28,16 @@ import {
 } from './constants';
 import AceTray from './entities/AceTray';
 import Card, { CardClickData } from './entities/Card';
-import Cell, { CellClickData } from './entities/Cell';
+import Cell from './entities/Cell';
 import Stack from './entities/Stack';
-import { CellMove, DeckDraw, GameMove, MoveType, store } from './store';
+import {
+  BankMove,
+  CellMove,
+  DeckDraw,
+  GameMove,
+  MoveType,
+  store
+} from './store';
 import {
   getCellFromCard,
   isCardOnBoard,
@@ -83,19 +92,123 @@ export default class Game {
     // start ticker
     Ticker.shared.add(this.update, this);
 
-    this.dealCards().then(() => {
-      this.listenForCardClick();
-      this.listenForCellClick();
-      this.listenForDeckClick();
-      this.initDomUi();
-    });
+    // this.dealCards().then(() => {
+    //   this.listenForCardClick();
+    //   this.listenForDeckClick();
+    //   this.initDomUi();
+    // });
 
-    // const cardA = new Card(Rank.Three, Suit.Diamonds);
-    // this.board.at(0).addCard(cardA);
+    // this.deck = [];
+    // this.resetDeckSprites();
+
+    const cardA = new Card(Rank.Three, Suit.Diamonds);
+    this.board.at(0).addCard(cardA);
+
+    const cardB = new Card(Rank.Two, Suit.Clubs);
+    this.board.at(1).addCard(cardB);
+
+    this.listenForCardClick();
+    this.listenForDeckClick();
+    this.initDomUi();
   }
 
   addChild(...children: Container[]) {
     this.scene.addChild(...children);
+  }
+
+  animateFromBankToCell(toCell: Cell) {
+    console.log(this.board.at(2) === toCell);
+    return new Promise((resolve, _) => {
+      // get target position
+      const targetPos = toCell.getGlobalPosition();
+      // get source position
+      const sourcePos = this.bank.getGlobalPosition();
+
+      // Add cards to a temporary stack for moving
+      const mover = new Stack(99);
+      this.scene.addChild(mover);
+      mover.x = sourcePos.x;
+      mover.y = sourcePos.y;
+      mover.addChild(this.bank.children.at(-1));
+
+      const card = mover.children[0] as Card;
+
+      const animProxy = {
+        x: mover.x,
+        y: mover.y
+      };
+
+      this.isAnimating = true;
+
+      // animate to position
+      animate(animProxy, {
+        x: targetPos.x - card.x,
+        y: targetPos.y - card.y,
+        duration: 200,
+        ease: 'inOutSine',
+        onUpdate: (anim) => {
+          mover.x = animProxy.x;
+          mover.y = animProxy.y;
+        },
+        onComplete: () => {
+          toCell.addCard(card);
+          card.x = 0;
+          toCell.alignCards();
+          this.isAnimating = false;
+          resolve(true);
+        }
+      });
+    });
+  }
+
+  animateFromCellToBank(fromCell: Cell) {
+    return new Promise((resolve, _) => {
+      // get target position
+      const targetPos = this.bank.getGlobalPosition();
+      // offset by number of cards in the bank
+      targetPos.x +=
+        store.layout.CARD_OFFSET_HORIZONTAL * this.bank.children.length;
+
+      // get source position
+      const sourcePos = fromCell.getGlobalPosition();
+
+      // Add cards to a temporary stack for moving
+      const mover = new Stack(99);
+      this.scene.addChild(mover);
+      mover.x = sourcePos.x;
+      mover.y = sourcePos.y;
+      mover.addChild(fromCell.popCard());
+
+      const card = mover.children[0] as Card;
+
+      const animProxy = {
+        x: mover.x,
+        y: mover.y
+      };
+
+      this.isAnimating = true;
+
+      // animate to position
+      animate(animProxy, {
+        x: targetPos.x - card.x,
+        y: targetPos.y - card.y,
+        duration: 200,
+        ease: 'inOutSine',
+        onUpdate: (anim) => {
+          mover.x = animProxy.x;
+          mover.y = animProxy.y;
+        },
+        onComplete: () => {
+          this.bank.addChild(card);
+          card.y = 0;
+          card.x =
+            store.layout.CARD_OFFSET_HORIZONTAL *
+            (this.bank.children.length - 1);
+          this.isAnimating = false;
+          resolve(true);
+        }
+      });
+    });
   }
 
   animateFromCellToCell(fromCell: Cell, toCell: Cell, cards: Card[]) {
@@ -144,51 +257,131 @@ export default class Game {
     });
   }
 
+  animateFromHandToBank() {
+    return new Promise((resolve, reject) => {
+      // get target position
+      const targetPos = this.bank.getGlobalPosition();
+      // get hand position
+      const handPos = this.hand.getGlobalPosition();
+
+      console.log('hand children', this.hand.children);
+
+      // Add cards to a temporary stack for moving
+      const mover = new Stack(99);
+      this.scene.addChild(mover);
+      mover.x = handPos.x;
+      mover.y = handPos.y;
+      mover.scale = this.hand.scale;
+      mover.addChild(...this.hand.children);
+
+      const card = mover.children[0] as Card;
+
+      const animProxy = {
+        x: mover.x,
+        y: mover.y,
+        scale: 1.15
+      };
+
+      this.isAnimating = true;
+
+      // animate to position
+      animate(animProxy, {
+        x:
+          targetPos.x -
+          card.x +
+          store.layout.CARD_OFFSET_HORIZONTAL * this.bank.children.length,
+        y: targetPos.y - card.y,
+        scale: 1,
+        duration: 75,
+        ease: 'inOutQuad',
+        onUpdate: (anim) => {
+          mover.x = animProxy.x;
+          mover.y = animProxy.y;
+          mover.scale = animProxy.scale;
+        },
+        onComplete: () => {
+          this.bank.addChild(card);
+          card.x =
+            store.layout.CARD_OFFSET_HORIZONTAL *
+            (this.bank.children.length - 1);
+          card.y = 0;
+
+          this.hand.scale = 1;
+          this.scene.removeChild(mover);
+          mover.destroy();
+          this.isAnimating = false;
+          resolve(true);
+        }
+      });
+    });
+  }
+
   animateFromHandToCell(targetCell: Cell) {
-    // get target position
-    const targetPos = targetCell.getGlobalPosition();
-    // get hand position
-    const handPos = this.hand.getGlobalPosition();
+    return new Promise((resolve, reject) => {
+      // get target position
+      const targetPos = targetCell.getGlobalPosition();
+      // get hand position
+      const handPos = this.hand.getGlobalPosition();
 
-    // Add cards to a temporary stack for moving
-    const mover = new Stack(99);
-    this.scene.addChild(mover);
-    mover.x = handPos.x;
-    mover.y = handPos.y;
-    mover.scale = this.hand.scale;
-    mover.addChild(...this.hand.children);
+      // Add cards to a temporary stack for moving
+      const mover = new Stack(99);
+      this.scene.addChild(mover);
+      mover.x = handPos.x;
+      mover.y = handPos.y;
+      mover.scale = this.hand.scale;
+      mover.addChild(...this.hand.children);
 
-    const card = mover.children[0] as Card;
+      const card = mover.children[0] as Card;
 
-    const animProxy = {
-      x: mover.x,
-      y: mover.y,
-      scale: 1.15
-    };
+      const animProxy = {
+        x: mover.x,
+        y: mover.y,
+        scale: 1.15
+      };
+
+      this.isAnimating = true;
+
+      // animate to position
+      animate(animProxy, {
+        x: targetPos.x - card.x,
+        y:
+          targetPos.y -
+          card.y +
+          store.layout.CARD_OFFSET_VERTICAL * targetCell.count,
+        scale: 1,
+        duration: 75,
+        ease: 'inOutQuad',
+        onUpdate: (anim) => {
+          mover.x = animProxy.x;
+          mover.y = animProxy.y;
+          mover.scale = animProxy.scale;
+        },
+        onComplete: () => {
+          targetCell.addCards(...mover.children);
+          targetCell.alignCards();
+          this.hand.scale = 1;
+          this.scene.removeChild(mover);
+          mover.destroy();
+          this.isAnimating = false;
+          resolve(true);
+        }
+      });
+    });
+  }
+
+  animateToHand() {
+    const scaleObj = { scale: 1 };
 
     this.isAnimating = true;
 
-    // animate to position
-    animate(animProxy, {
-      x: targetPos.x - card.x,
-      y:
-        targetPos.y -
-        card.y +
-        store.layout.CARD_OFFSET_VERTICAL * targetCell.count,
-      scale: 1,
-      duration: 100,
-      ease: 'linear',
+    animate(scaleObj, {
+      scale: 1.15,
+      ease: 'outBack(4)',
+      duration: 200,
       onUpdate: (anim) => {
-        mover.x = animProxy.x;
-        mover.y = animProxy.y;
-        mover.scale = animProxy.scale;
+        this.hand.scale = scaleObj.scale;
       },
       onComplete: () => {
-        targetCell.addCards(...mover.children);
-        targetCell.alignCards();
-        this.hand.scale = 1;
-        this.scene.removeChild(mover);
-        mover.destroy();
         this.isAnimating = false;
       }
     });
@@ -303,8 +496,8 @@ export default class Game {
     this.addChild(this.deckSprites);
   }
 
-  doCellMove(move: CellMove) {
-    this.animateFromHandToCell(move.to);
+  doCardMove(move: CellMove | BankMove) {
+    return this.animateFromHandToCell(move.to);
   }
 
   async drawFromDeck() {
@@ -358,14 +551,20 @@ export default class Game {
   }
 
   handleBoardClick(card: Card) {
-    const cell = getCellFromCard(card);
-
-    if (!cell) {
+    if (this.hand.count) {
       return;
     }
 
-    if (this.hand.count) {
-      // place hand stack
+    if (this.bank.children.at(-1)?.id === card.id) {
+      this.hand.reparentChild(card);
+      this.handOrigin = BANK_STACK_ID;
+      this.animateToHand();
+      return;
+    }
+
+    const cell = getCellFromCard(card);
+
+    if (!cell) {
       return;
     }
 
@@ -378,22 +577,7 @@ export default class Game {
     if (cell.isSequentialFrom(card)) {
       this.hand.reparentChild(...cell.sliceFromCard(card));
       this.handOrigin = cell.id;
-
-      const scaleObj = { scale: 1 };
-
-      this.isAnimating = true;
-
-      animate(scaleObj, {
-        scale: 1.15,
-        ease: 'outBack(4)',
-        duration: 200,
-        onUpdate: (anim) => {
-          this.hand.scale = scaleObj.scale;
-        },
-        onComplete: () => {
-          this.isAnimating = false;
-        }
-      });
+      this.animateToHand();
     }
   }
 
@@ -416,15 +600,22 @@ export default class Game {
     // If the target is the bank and the bank is the origin of this hand, allow
     // putting it back.
     if (
-      obj.label === BANK_LABEL &&
-      this.handOrigin === HAND_STACK_ID &&
+      (obj.label === BANK_LABEL ||
+        obj.label === BANK_BG ||
+        obj.parent.label === BANK_LABEL) &&
+      this.handOrigin === BANK_STACK_ID &&
       this.hand.count === 1
     ) {
-      this.bank.reparentChild(this.hand.children[0]);
+      await this.animateFromHandToBank();
       return;
     }
 
-    // Otherwise, see what cell is being targeted.
+    // Otherwise, the bank is not a valid target for the hand.
+    if (obj.label === BANK_LABEL || obj.label === BANK_BG) {
+      return;
+    }
+
+    // See what cell is being targeted.
     let targetCell: Cell | null = null;
     let targetCellId = -1;
 
@@ -441,19 +632,54 @@ export default class Game {
     // If the target is where the hand originally came from, allow the user to
     // put it back.
     if (targetCellId === this.handOrigin) {
-      this.animateFromHandToCell(targetCell);
+      await this.animateFromHandToCell(targetCell);
       return;
     }
 
+    // If the target is the free cell, but the hand has multiple cards, disallow
+    // hand placement.
+    if (targetCellId === DECK_CELL_ID && this.hand.count > 1) {
+      return;
+    }
+
+    // If the target is an empty cell, place the hand.
+    if (targetCell && targetCell.count === 0) {
+      const fromCell =
+        this.handOrigin === BANK_STACK_ID
+          ? undefined
+          : this.handOrigin === DECK_CELL_ID
+          ? this.deckCell
+          : this.board.find((cell) => cell.id === this.handOrigin);
+
+      await this.moveAdd({
+        type:
+          this.handOrigin === BANK_STACK_ID
+            ? MoveType.BANK_MOVE
+            : MoveType.CELL_MOVE,
+        cards: [...this.hand.children],
+        from: fromCell,
+        to: targetCell
+      });
+      return;
+    }
+
+    // If the target is a non-empty cell and the top card in the hand can be
+    // placed on it, then move the hand to that cell.
     if (
       obj instanceof Card &&
       isCardOnBoard(obj) &&
       isFirstCardAllowedOnSecond(card, obj)
     ) {
-      const fromCell = this.board.find((cell) => cell.id === this.handOrigin);
+      const fromCell =
+        this.handOrigin === BANK_STACK_ID
+          ? undefined
+          : this.board.find((cell) => cell.id === this.handOrigin);
 
       await this.moveAdd({
-        type: MoveType.CELL_MOVE,
+        type:
+          this.handOrigin === BANK_STACK_ID
+            ? MoveType.BANK_MOVE
+            : MoveType.CELL_MOVE,
         cards: [...this.hand.children],
         from: fromCell,
         to: targetCell
@@ -469,15 +695,25 @@ export default class Game {
     this.bank.y = store.layout.DECK_POS.y;
 
     this.bankBg = new Container();
-    this.bankBg.label = 'bank_bg';
+    this.bankBg.label = BANK_BG;
+    this.bankBg.x = this.bank.x;
+    this.bankBg.y = this.bank.y;
+
     const bankBgGraphic = new Graphics();
-    bankBgGraphic.rect(
-      this.bank.x,
-      this.bank.y,
-      store.layout.VIEW_W - this.bank.x - store.layout.STACK_GAP,
-      store.layout.CARD_H
-    );
-    bankBgGraphic.fill('#00000011');
+    const bankW = store.layout.VIEW_W - this.bank.x - store.layout.STACK_GAP;
+    const bankH = store.layout.CARD_H;
+
+    bankBgGraphic
+      .rect(0, 0, bankW, bankH)
+      .fill('#00000011')
+      .rect(0, 0, bankW, 2)
+      .fill('#00000033')
+      .rect(0, 2, 2, bankH)
+      .fill('#00000033')
+      .rect(bankW - 2, 2, 2, bankH - 4)
+      .fill('#ffffff10')
+      .rect(0, bankH - 2, bankW, 2)
+      .fill('#ffffff10');
     this.bankBg.addChild(bankBgGraphic);
 
     this.bank.eventMode = 'static';
@@ -637,19 +873,14 @@ export default class Game {
           return;
         }
 
-        if (isCardOnBoard(data.card)) {
-          this.handleBoardClick(data.card);
-        }
-      }
-    );
-  }
+        // if (data.card.parent === this.bank) {
+        //   return;
+        // }
 
-  listenForCellClick() {
-    PubSub.subscribe(
-      GameEvent.CELL_CLICK,
-      (msg: string, data: CellClickData) => {
-        if (this.hand.count) {
-          return;
+        // I might end up getting rid of this if statement and letting this
+        // method handle all card clicks.
+        if (true) {
+          this.handleBoardClick(data.card);
         }
       }
     );
@@ -658,11 +889,7 @@ export default class Game {
   listenForDeckClick() {
     this.deckSprites.eventMode = 'static';
     this.deckSprites.addEventListener('pointertap', async (event) => {
-      if (this.isAnimating) {
-        return;
-      }
-
-      if (this.deck.length < 3) {
+      if (this.isAnimating || this.hand.count || this.deck.length < 3) {
         return;
       }
 
@@ -680,15 +907,22 @@ export default class Game {
       store.movesCache.value = [];
     }
 
-    if (move.type === MoveType.DECK_DRAW) {
+    if (move.type === MoveType.BANK_MOVE) {
       signalPush(store.moves, move);
-      await this.drawFromDeck();
+      await this.doCardMove(move);
+      this.refreshBank();
       return;
     }
 
     if (move.type === MoveType.CELL_MOVE) {
       signalPush(store.moves, move);
-      await this.doCellMove(move);
+      await this.doCardMove(move);
+      return;
+    }
+
+    if (move.type === MoveType.DECK_DRAW) {
+      signalPush(store.moves, move);
+      await this.drawFromDeck();
       return;
     }
   }
@@ -699,6 +933,12 @@ export default class Game {
     }
 
     const move = signalPop(store.movesCache);
+
+    if (move.type === MoveType.BANK_MOVE) {
+      await this.redoBankMove(move);
+      signalPush(store.moves, move);
+      return;
+    }
 
     if (move.type === MoveType.CELL_MOVE) {
       await this.redoCellMove(move);
@@ -723,13 +963,33 @@ export default class Game {
     const move = signalPop(store.moves);
     signalPush(store.movesCache, move);
 
-    if (move.type === MoveType.DECK_DRAW) {
-      await this.undoDeckDraw(move);
+    if (move.type === MoveType.BANK_MOVE) {
+      await this.undoBankMove(move);
     }
 
     if (move.type === MoveType.CELL_MOVE) {
       await this.undoCellMove(move);
     }
+
+    if (move.type === MoveType.DECK_DRAW) {
+      await this.undoDeckDraw(move);
+    }
+  }
+
+  async redoBankMove(move: BankMove) {
+    return this.animateFromBankToCell(move.to);
+  }
+
+  async redoCellMove(move: CellMove) {
+    return await this.animateFromCellToCell(move.from, move.to, move.cards);
+  }
+
+  async redoDeckDraw() {
+    if (this.deck.length < 3) {
+      return;
+    }
+
+    return await this.drawFromDeck();
   }
 
   refreshBank() {
@@ -787,72 +1047,19 @@ export default class Game {
     });
   }
 
-  async redoCellMove(move: CellMove) {
-    return await this.animateFromCellToCell(move.from, move.to, move.cards);
-  }
-
-  async redoDeckDraw() {
-    if (this.deck.length < 3) {
-      return;
-    }
-
-    // const cards = this.deck.slice(-3);
-
-    this.drawFromDeck();
+  async undoBankMove(move: BankMove) {
+    return this.animateFromCellToBank(move.to);
   }
 
   async undoCellMove(move: CellMove) {
-    // return new Promise((resolve, reject) => {
-    //   // get target position
-    //   const targetPos = move.from.getGlobalPosition();
-    //   // get source position
-    //   const sourcePos = move.to.getGlobalPosition();
-
-    //   // Add cards to a temporary stack for moving
-    //   const mover = new Stack(99);
-    //   this.scene.addChild(mover);
-    //   mover.x = sourcePos.x;
-    //   mover.y = sourcePos.y;
-    //   mover.addChild(...move.cards);
-
-    //   // get the first card of the source
-    //   const card = mover.children[0] as Card;
-
-    //   const animProxy = {
-    //     x: mover.x,
-    //     y: mover.y
-    //   };
-
-    //   // animate to position
-    //   animate(animProxy, {
-    //     x: targetPos.x - card.x,
-    //     y:
-    //       targetPos.y -
-    //       card.y +
-    //       store.layout.CARD_OFFSET_VERTICAL * move.from.count,
-    //     scale: 1,
-    //     duration: 200,
-    //     ease: 'inOutSine',
-    //     onUpdate: (anim) => {
-    //       console.log(animProxy.x);
-    //       mover.x = animProxy.x;
-    //       mover.y = animProxy.y;
-    //     },
-    //     onComplete: () => {
-    //       move.from.addCards(...mover.children);
-    //       move.from.alignCards();
-    //       console.log('done', mover.x);
-    //     }
-    //   });
-    // });
-
-    await this.animateFromCellToCell(move.to, move.from, move.cards);
+    return this.animateFromCellToCell(move.to, move.from, move.cards);
   }
 
   undoDeckDraw(move: DeckDraw) {
     return new Promise((resolve, reject) => {
       const start = this.bank.children.length - 3;
       this.bank.removeChildren(start);
+      this.refreshBank();
       this.deck.push(...move.cards);
       this.resetDeckSprites();
 

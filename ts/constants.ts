@@ -21,6 +21,7 @@ export enum Rank {
   King = 'k'
 }
 
+export const BANK_BG = 'BANK_BG';
 export const BANK_LABEL = 'BANK';
 export const BOARD_CELL_LABEL = 'BOARD_CELL';
 export const CARD_LABEL = 'CARD';
