@@ -502,8 +502,18 @@ export default class Game {
     // show the row of buttons
     document.querySelector('.buttons').removeAttribute('hidden');
 
+    const undoButton = document.querySelector(
+      '[data-undo]'
+    ) as HTMLButtonElement;
+    const redoButton = document.querySelector(
+      '[data-redo]'
+    ) as HTMLButtonElement;
+    const resetButtons = Array.from(
+      document.querySelectorAll('.game-over button, .reset-button')
+    ) as HTMLButtonElement[];
+
     // undo
-    document.querySelector('[data-undo]').addEventListener('click', () => {
+    undoButton.addEventListener('click', () => {
       if (this.isAnimating) {
         return;
       }
@@ -512,7 +522,7 @@ export default class Game {
     });
 
     // redo
-    document.querySelector('[data-redo]').addEventListener('click', () => {
+    redoButton.addEventListener('click', () => {
       if (this.isAnimating) {
         return;
       }
@@ -521,13 +531,20 @@ export default class Game {
     });
 
     // reset
-    document
-      .querySelectorAll('.game-over button, .reset-button')
-      .forEach((el) => {
-        el.addEventListener('click', () => {
-          // this.reset();
-        });
+    resetButtons.forEach((el) => {
+      el.addEventListener('click', () => {
+        // this.reset();
       });
+    });
+
+    // Disable the undo and redo buttons as needed when the moves and movesCache
+    // arrays change.
+    store.moves.subscribe((moves) => {
+      undoButton.disabled = moves.length === 0;
+    });
+    store.movesCache.subscribe((movesCache) => {
+      redoButton.disabled = movesCache.length === 0;
+    });
   }
 
   initFoundation() {

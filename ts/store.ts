@@ -120,12 +120,45 @@ export const store: IStore = {
   }
 };
 
+function formatCards(cards: Card[]) {
+  return cards.map((card) => card.id).join(', ');
+}
+
+function formatMove(move: GameMove) {
+  switch (move.type) {
+    case MoveType.CARD_MOVE:
+      return `CARD_MOVE: ${move.from.label || 'container'} -> cell ${
+        move.to.id
+      }`;
+    case MoveType.DECK_DRAW:
+      return `DECK_DRAW: ${formatCards(move.cards)}`;
+    case MoveType.CELL_MOVE:
+      return `CELL_MOVE: cell ${move.from.id} -> cell ${
+        move.to.id
+      } (${formatCards(move.cards)})`;
+  }
+}
+
+function logMoves(label: string, moves: GameMove[]) {
+  console.group(`${label} (${moves.length})`);
+
+  if (!moves.length) {
+    console.log('• (empty)');
+  } else {
+    moves.forEach((move, index) => {
+      console.log(`• ${index + 1}. ${formatMove(move)}`);
+    });
+  }
+
+  console.groupEnd();
+}
+
 effect(() => {
-  console.log('moves', store.moves.value);
+  logMoves('moves', store.moves.value);
 });
 
 effect(() => {
-  console.log('movesCache', store.movesCache.value);
+  logMoves('movesCache', store.movesCache.value);
 });
 
 // @ts-ignore
