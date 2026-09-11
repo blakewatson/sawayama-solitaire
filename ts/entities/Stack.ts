@@ -21,6 +21,10 @@ export default class Stack extends Container<Card> {
     return stackIsSequential(this);
   }
 
+  get nextCardPosY() {
+    return this.count * store.layout.CARD_OFFSET_VERTICAL;
+  }
+
   addCards(...cards: Card[]) {
     this.addChild(...cards);
     this.alignCards();
@@ -46,7 +50,7 @@ export default class Stack extends Container<Card> {
     return this.children.pop();
   }
 
-  takeFrom(card: Card) {
+  sliceFromCard(card: Card) {
     const idx = this.children.findIndex((c) => c.id === card.id);
     const cards = this.children.slice(idx);
     return cards;

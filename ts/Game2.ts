@@ -28,12 +28,14 @@ import AceTray from './entities/AceTray';
 import Card, { CardClickData } from './entities/Card';
 import Cell, { CellClickData } from './entities/Cell';
 import Stack from './entities/Stack';
-import { DeckDraw, GameMove, MoveType, store } from './store';
+import { CellMove, DeckDraw, GameMove, MoveType, store } from './store';
 import {
   getCellFromCard,
   isCardOnBoard,
   isFirstCardAllowedOnSecond,
-  shuffleCards
+  shuffleCards,
+  signalPop,
+  signalPush
 } from './utils';
 
 export default class Game {
@@ -49,9 +51,7 @@ export default class Game {
   hand: Stack | null = null;
   handOffset: [number, number] = [0, 0];
   handOrigin = 0;
-  isAnimatingDealing = false;
-  isAnimatingDeckDraw = false;
-  isMoving = false;
+  isAnimating = false;
   scene: Container | null = null;
 
   constructor(app: Application) {
@@ -96,6 +96,102 @@ export default class Game {
 
   addChild(...children: Container[]) {
     this.scene.addChild(...children);
+  }
+
+  animateFromCellToCell(fromCell: Cell, toCell: Cell, cards: Card[]) {
+    return new Promise((resolve, reject) => {
+      // get target position
+      const targetPos = toCell.getGlobalPosition();
+      // get source position
+      const sourcePos = fromCell.getGlobalPosition();
+
+      // Add cards to a temporary stack for moving
+      const mover = new Stack(99);
+      this.scene.addChild(mover);
+      mover.x = sourcePos.x;
+      mover.y = sourcePos.y;
+      mover.addChild(...cards);
+
+      const card = mover.children[0] as Card;
+
+      const animProxy = {
+        x: mover.x,
+        y: mover.y
+      };
+
+      this.isAnimating = true;
+
+      // animate to position
+      animate(animProxy, {
+        x: targetPos.x - card.x,
+        y:
+          targetPos.y -
+          card.y +
+          store.layout.CARD_OFFSET_VERTICAL * toCell.count,
+        duration: 200,
+        ease: 'inOutSine',
+        onUpdate: (anim) => {
+          mover.x = animProxy.x;
+          mover.y = animProxy.y;
+        },
+        onComplete: () => {
+          toCell.addCards(...mover.children);
+          toCell.alignCards();
+          this.isAnimating = false;
+          resolve(true);
+        }
+      });
+    });
+  }
+
+  animateFromHandToCell(targetCell: Cell) {
+    // get target position
+    const targetPos = targetCell.getGlobalPosition();
+    // get hand position
+    const handPos = this.hand.getGlobalPosition();
+
+    // Add cards to a temporary stack for moving
+    const mover = new Stack(99);
+    this.scene.addChild(mover);
+    mover.x = handPos.x;
+    mover.y = handPos.y;
+    mover.scale = this.hand.scale;
+    mover.addChild(...this.hand.children);
+
+    const card = mover.children[0] as Card;
+
+    const animProxy = {
+      x: mover.x,
+      y: mover.y,
+      scale: 1.15
+    };
+
+    this.isAnimating = true;
+
+    // animate to position
+    animate(animProxy, {
+      x: targetPos.x - card.x,
+      y:
+        targetPos.y -
+        card.y +
+        store.layout.CARD_OFFSET_VERTICAL * targetCell.count,
+      scale: 1,
+      duration: 100,
+      ease: 'linear',
+      onUpdate: (anim) => {
+        mover.x = animProxy.x;
+        mover.y = animProxy.y;
+        mover.scale = animProxy.scale;
+      },
+      onComplete: () => {
+        targetCell.addCards(...mover.children);
+        targetCell.alignCards();
+        this.hand.scale = 1;
+        this.scene.removeChild(mover);
+        mover.destroy();
+        this.isAnimating = false;
+      }
+    });
   }
 
   createBoard() {
@@ -157,7 +253,7 @@ export default class Game {
       //   col = start;
       // }
 
-      this.isAnimatingDealing = true;
+      this.isAnimating = true;
 
       animate(card, {
         x: cell.x,
@@ -178,7 +274,7 @@ export default class Game {
           //   return this.dealNextCard(start, col).then(() => resolve(true));
           // }
 
-          this.isAnimatingDealing = false;
+          this.isAnimating = false;
           resolve(true);
         }
       });
@@ -207,12 +303,16 @@ export default class Game {
     this.addChild(this.deckSprites);
   }
 
+  doCellMove(move: CellMove) {
+    this.animateFromHandToCell(move.to);
+  }
+
   async drawFromDeck() {
-    if (this.isAnimatingDeckDraw || this.isAnimatingDealing) {
+    if (this.isAnimating) {
       return;
     }
 
-    this.isAnimatingDeckDraw = true;
+    this.isAnimating = true;
 
     for (let i = 0; i < 3; i++) {
       if (!this.deck.length) {
@@ -226,7 +326,7 @@ export default class Game {
       card.eventMode = 'static';
     }
 
-    this.isAnimatingDeckDraw = false;
+    this.isAnimating = false;
 
     this.refreshBank();
 
@@ -276,12 +376,28 @@ export default class Game {
 
     // If the selected stack is sequential, then add it to the hand.
     if (cell.isSequentialFrom(card)) {
-      this.hand.reparentChild(...cell.takeFrom(card));
+      this.hand.reparentChild(...cell.sliceFromCard(card));
       this.handOrigin = cell.id;
+
+      const scaleObj = { scale: 1 };
+
+      this.isAnimating = true;
+
+      animate(scaleObj, {
+        scale: 1.15,
+        ease: 'outBack(4)',
+        duration: 200,
+        onUpdate: (anim) => {
+          this.hand.scale = scaleObj.scale;
+        },
+        onComplete: () => {
+          this.isAnimating = false;
+        }
+      });
     }
   }
 
-  handleHandClick() {
+  async handleHandClick() {
     if (!this.hand.count) {
       return;
     }
@@ -296,8 +412,6 @@ export default class Game {
       point.x + store.layout.CARD_W / 2,
       point.y + store.layout.CARD_H / 4
     );
-
-    console.log('obj', obj);
 
     // If the target is the bank and the bank is the origin of this hand, allow
     // putting it back.
@@ -327,8 +441,7 @@ export default class Game {
     // If the target is where the hand originally came from, allow the user to
     // put it back.
     if (targetCellId === this.handOrigin) {
-      targetCell.reparentCard(...this.hand.children);
-      targetCell.alignCards();
+      this.animateFromHandToCell(targetCell);
       return;
     }
 
@@ -337,9 +450,14 @@ export default class Game {
       isCardOnBoard(obj) &&
       isFirstCardAllowedOnSecond(card, obj)
     ) {
-      const cell = getCellFromCard(obj);
-      cell.reparentCard(...this.hand.children);
-      cell.alignCards();
+      const fromCell = this.board.find((cell) => cell.id === this.handOrigin);
+
+      await this.moveAdd({
+        type: MoveType.CELL_MOVE,
+        cards: [...this.hand.children],
+        from: fromCell,
+        to: targetCell
+      });
       return;
     }
   }
@@ -386,11 +504,7 @@ export default class Game {
 
     // undo
     document.querySelector('[data-undo]').addEventListener('click', () => {
-      if (
-        this.isAnimatingDealing ||
-        this.isAnimatingDeckDraw ||
-        this.isMoving
-      ) {
+      if (this.isAnimating) {
         return;
       }
 
@@ -399,11 +513,7 @@ export default class Game {
 
     // redo
     document.querySelector('[data-redo]').addEventListener('click', () => {
-      if (
-        this.isAnimatingDealing ||
-        this.isAnimatingDeckDraw ||
-        this.isMoving
-      ) {
+      if (this.isAnimating) {
         return;
       }
 
@@ -473,13 +583,11 @@ export default class Game {
     this.scene.addEventListener(
       'pointerdown',
       (event) => {
-        console.log('scene click', event);
         if (!this.hand.count) {
           return;
         }
 
         event.stopImmediatePropagation();
-        console.log('STOPPED PROPAGATION');
 
         this.handleHandClick();
       },
@@ -512,8 +620,6 @@ export default class Game {
           return;
         }
 
-        console.log(`clicked ${data.card.rank} of ${data.card.suit}`);
-
         if (isCardOnBoard(data.card)) {
           this.handleBoardClick(data.card);
         }
@@ -528,7 +634,6 @@ export default class Game {
         if (this.hand.count) {
           return;
         }
-        console.log('clicked cell', data.cell);
       }
     );
   }
@@ -536,7 +641,7 @@ export default class Game {
   listenForDeckClick() {
     this.deckSprites.eventMode = 'static';
     this.deckSprites.addEventListener('pointertap', async (event) => {
-      if (this.isAnimatingDeckDraw || this.isAnimatingDealing) {
+      if (this.isAnimating) {
         return;
       }
 
@@ -555,35 +660,58 @@ export default class Game {
 
   async moveAdd(move: GameMove, resetCache = true) {
     if (resetCache) {
-      store.movesCache = [];
+      store.movesCache.value = [];
     }
 
     if (move.type === MoveType.DECK_DRAW) {
-      store.moves.push(move);
+      signalPush(store.moves, move);
       await this.drawFromDeck();
+      return;
+    }
+
+    if (move.type === MoveType.CELL_MOVE) {
+      signalPush(store.moves, move);
+      await this.doCellMove(move);
       return;
     }
   }
 
   async moveRedo() {
-    if (!store.movesCache.length) {
+    if (!store.movesCache.value.length || this.isAnimating) {
       return;
     }
 
-    const move = store.movesCache.pop();
-    this.moveAdd(move, false);
+    const move = signalPop(store.movesCache);
+
+    if (move.type === MoveType.CELL_MOVE) {
+      await this.redoCellMove(move);
+      signalPush(store.moves, move);
+      return;
+    }
+
+    if (move.type === MoveType.DECK_DRAW) {
+      await this.redoDeckDraw();
+      signalPush(store.moves, move);
+      return;
+    }
+
+    // this.moveAdd(move, false);
   }
 
   async moveUndo() {
-    if (!store.moves.length) {
+    if (!store.moves.value.length || this.isAnimating) {
       return;
     }
 
-    const move = store.moves.pop();
-    store.movesCache.push(move);
+    const move = signalPop(store.moves);
+    signalPush(store.movesCache, move);
 
     if (move.type === MoveType.DECK_DRAW) {
       await this.undoDeckDraw(move);
+    }
+
+    if (move.type === MoveType.CELL_MOVE) {
+      await this.undoCellMove(move);
     }
   }
 
@@ -642,17 +770,66 @@ export default class Game {
     });
   }
 
+  async redoCellMove(move: CellMove) {
+    return await this.animateFromCellToCell(move.from, move.to, move.cards);
+  }
+
   async redoDeckDraw() {
     if (this.deck.length < 3) {
       return;
     }
 
-    const cards = this.deck.slice(-3);
+    // const cards = this.deck.slice(-3);
 
-    this.moveAdd({
-      type: MoveType.DECK_DRAW,
-      cards
-    });
+    this.drawFromDeck();
+  }
+
+  async undoCellMove(move: CellMove) {
+    // return new Promise((resolve, reject) => {
+    //   // get target position
+    //   const targetPos = move.from.getGlobalPosition();
+    //   // get source position
+    //   const sourcePos = move.to.getGlobalPosition();
+
+    //   // Add cards to a temporary stack for moving
+    //   const mover = new Stack(99);
+    //   this.scene.addChild(mover);
+    //   mover.x = sourcePos.x;
+    //   mover.y = sourcePos.y;
+    //   mover.addChild(...move.cards);
+
+    //   // get the first card of the source
+    //   const card = mover.children[0] as Card;
+
+    //   const animProxy = {
+    //     x: mover.x,
+    //     y: mover.y
+    //   };
+
+    //   // animate to position
+    //   animate(animProxy, {
+    //     x: targetPos.x - card.x,
+    //     y:
+    //       targetPos.y -
+    //       card.y +
+    //       store.layout.CARD_OFFSET_VERTICAL * move.from.count,
+    //     scale: 1,
+    //     duration: 200,
+    //     ease: 'inOutSine',
+    //     onUpdate: (anim) => {
+    //       console.log(animProxy.x);
+    //       mover.x = animProxy.x;
+    //       mover.y = animProxy.y;
+    //     },
+    //     onComplete: () => {
+    //       move.from.addCards(...mover.children);
+    //       move.from.alignCards();
+    //       console.log('done', mover.x);
+    //     }
+    //   });
+    // });
+
+    await this.animateFromCellToCell(move.to, move.from, move.cards);
   }
 
   undoDeckDraw(move: DeckDraw) {
@@ -690,8 +867,8 @@ export default class Game {
 
   update(ticker: Ticker) {
     if (this.hand) {
-      this.hand.x = store.mousePosition[0] - this.handOffset[0];
-      this.hand.y = store.mousePosition[1] - this.handOffset[1];
+      this.hand.x = store.mousePosition[0];
+      this.hand.y = store.mousePosition[1];
     }
   }
 }

@@ -67,7 +67,7 @@ export default class Cell extends Container {
   }
 
   get nextCardPosY() {
-    return this.y + store.layout.CARD_OFFSET_VERTICAL * this.count;
+    return this.y + this.stack.nextCardPosY;
   }
 
   addCard(card: Card) {
@@ -98,7 +98,7 @@ export default class Cell extends Container {
     return this.stack.reparentChild(...cards);
   }
 
-  takeFrom(card: Card) {
-    return this.stack.takeFrom(card);
+  sliceFromCard(card: Card) {
+    return this.stack.sliceFromCard(card);
   }
 }

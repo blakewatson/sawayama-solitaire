@@ -48,5 +48,9 @@ export enum GameEvent {
 export const BANK_STACK_ID = 7;
 export const DECK_CELL_ID = 8;
 export const HAND_STACK_ID = 9;
+export const FOUNDATION_CLUBS_ID = 10;
+export const FOUNDATION_DIAMONDS_ID = 11;
+export const FOUNDATION_HEARTS_ID = 12;
+export const FOUNDATION_SPADES_ID = 13;
 
 export const CARD_ANIM_SPEED_MS = 100;

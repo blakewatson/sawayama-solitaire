@@ -1,22 +1,23 @@
+import { effect, Signal, signal } from '@preact/signals-core';
 import { Container, Spritesheet } from 'pixi.js';
 import { Suit } from './constants';
 import Card from './entities/Card';
-import Stack from './entities/Stack';
+import Cell from './entities/Cell';
 
 export enum MoveType {
   CARD_MOVE = 'CARD_MOVE',
   DECK_DRAW = 'DECK_DRAW',
-  STACK_MOVE = 'STACK_MOVE'
+  CELL_MOVE = 'CELL_MOVE'
 }
 
 interface BaseMove {
   type: MoveType;
 }
 
-export type CardMove = BaseMove & {
+export type BankMove = BaseMove & {
   type: MoveType.CARD_MOVE;
   from: Container;
-  to: Container;
+  to: Cell;
 };
 
 export type DeckDraw = BaseMove & {
@@ -24,13 +25,14 @@ export type DeckDraw = BaseMove & {
   cards: Card[];
 };
 
-export type StackMove = BaseMove & {
-  type: MoveType.STACK_MOVE;
-  from: Stack;
-  to: Stack;
+export type CellMove = BaseMove & {
+  type: MoveType.CELL_MOVE;
+  cards: Card[];
+  from: Cell;
+  to: Cell;
 };
 
-export type GameMove = CardMove | DeckDraw | StackMove;
+export type GameMove = BankMove | DeckDraw | CellMove;
 
 interface GameState {
   bank: string[];
@@ -59,8 +61,8 @@ interface IStore {
     VIEW_H: number;
   };
   mousePosition: [number, number];
-  moves: GameMove[];
-  movesCache: GameMove[];
+  moves: Signal<GameMove[]>;
+  movesCache: Signal<GameMove[]>;
   spritesheet: Spritesheet | null;
   makeDesktopLayout: () => void;
 }
@@ -82,8 +84,8 @@ export const store: IStore = {
     VIEW_H: 0
   },
   mousePosition: [0, 0],
-  moves: [],
-  movesCache: [],
+  moves: signal([]),
+  movesCache: signal([]),
   spritesheet: null,
   makeDesktopLayout() {
     store.layout.CARD_W = 90;
@@ -117,3 +119,14 @@ export const store: IStore = {
       store.layout.STACK_GAP;
   }
 };
+
+effect(() => {
+  console.log('moves', store.moves.value);
+});
+
+effect(() => {
+  console.log('movesCache', store.movesCache.value);
+});
+
+// @ts-ignore
+window.store = store;

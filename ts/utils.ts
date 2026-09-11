@@ -1,3 +1,4 @@
+import { Signal } from '@preact/signals-core';
 import { Container } from 'pixi.js';
 import { BANK_LABEL, BOARD_CELL_LABEL, Rank, Suit } from './constants';
 import AceTray from './entities/AceTray';
@@ -102,6 +103,16 @@ export const isTopCardATwo = (
   }
 
   return stack.children.at(-1)?.rank === Rank.Two;
+};
+
+export const signalPop = (arrSignal: Signal<Array<any>>) => {
+  const item = arrSignal.value.at(-1);
+  arrSignal.value = arrSignal.value.slice(0, -1);
+  return item;
+};
+
+export const signalPush = (arrSignal: Signal<Array<any>>, item: any) => {
+  arrSignal.value = [...arrSignal.value, item];
 };
 
 export const rand = (min: number, max: number): number =>
