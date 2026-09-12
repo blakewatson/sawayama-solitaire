@@ -3,6 +3,7 @@ import { Spritesheet } from 'pixi.js';
 import { BANK_LABEL, Suit } from './constants';
 import Card from './entities/Card';
 import Cell from './entities/Cell';
+import Stack from './entities/Stack';
 
 export enum MoveType {
   BANK_MOVE = 'BANK_MOVE',
@@ -46,6 +47,7 @@ interface GameState {
 }
 
 interface IStore {
+  hand: Stack | null;
   layout: {
     CARD_W: number;
     CARD_H: number;
@@ -59,16 +61,17 @@ interface IStore {
     VIEW_W: number;
     VIEW_H: number;
   };
+  makeDesktopLayout: () => void;
   mousePosition: [number, number];
   moves: Signal<GameMove[]>;
   movesCache: Signal<GameMove[]>;
   spritesheet: Spritesheet | null;
-  makeDesktopLayout: () => void;
 }
 
 // Cards
 
 export const store: IStore = {
+  hand: null,
   layout: {
     CARD_W: 0,
     CARD_H: 0,

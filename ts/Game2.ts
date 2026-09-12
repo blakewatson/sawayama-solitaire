@@ -1,4 +1,4 @@
-import { animate, createTimeline, stagger } from 'animejs';
+import { animate } from 'animejs';
 import { DropShadowFilter } from 'pixi-filters';
 import {
   Application,
@@ -6,7 +6,6 @@ import {
   EventBoundary,
   Graphics,
   Point,
-  Rectangle,
   Sprite,
   Ticker
 } from 'pixi.js';
@@ -26,6 +25,8 @@ import {
   Rank,
   Suit
 } from './constants';
+import AnimationController from './controllers/AnimationController';
+import ViewController from './controllers/ViewController';
 import AceTray from './entities/AceTray';
 import Card, { CardClickData } from './entities/Card';
 import Cell from './entities/Cell';
@@ -48,6 +49,7 @@ import {
 } from './utils';
 
 export default class Game {
+  animator: AnimationController | null = null;
   app: Application | null = null;
   bank: Container<Card> | null = null;
   bankBg: Container<Graphics> | null = null;
@@ -57,11 +59,10 @@ export default class Game {
   deckSprites: Container | null = null;
   foundation: AceTray[] = [];
   foundationBg: Graphics | null = null;
-  hand: Stack | null = null;
   handOffset: [number, number] = [0, 0];
   handOrigin = 0;
   isAnimating = false;
-  scene: Container | null = null;
+  view: ViewController | null = null;
 
   constructor(app: Application) {
     this.app = app;
@@ -73,7 +74,11 @@ export default class Game {
       ?.append(this.app.canvas as HTMLCanvasElement);
 
     // set up the main container
-    this.initMainScene();
+    this.view = new ViewController(this.app);
+
+    // set up the animator
+    this.animator = new AnimationController(this.view);
+
     // set up the foundation (aces)
     this.initFoundation();
     // create the deck array in the store
@@ -85,9 +90,9 @@ export default class Game {
     // create the card bank
     this.initBank();
     // init the hand stack
-    this.hand = new Stack(HAND_STACK_ID, HAND_STACK_LABEL);
-    this.hand.eventMode = 'none';
-    this.addChild(this.hand);
+    store.hand = new Stack(HAND_STACK_ID, HAND_STACK_LABEL);
+    store.hand.eventMode = 'none';
+    this.view.addChild(store.hand);
 
     // start ticker
     Ticker.shared.add(this.update, this);
@@ -95,6 +100,7 @@ export default class Game {
     this.dealCards().then(() => {
       this.listenForCardClick();
       this.listenForDeckClick();
+      this.listenForMainSceneClick();
       this.initDomUi();
     });
 
@@ -110,280 +116,6 @@ export default class Game {
     // this.listenForCardClick();
     // this.listenForDeckClick();
     // this.initDomUi();
-  }
-
-  addChild(...children: Container[]) {
-    this.scene.addChild(...children);
-  }
-
-  animateFromBankToCell(toCell: Cell) {
-    return new Promise((resolve, _) => {
-      // get target position
-      const targetPos = toCell.getGlobalPosition();
-      // get source position
-      const sourcePos = this.bank.getGlobalPosition();
-
-      // Add cards to a temporary stack for moving
-      const mover = new Stack(99);
-      this.scene.addChild(mover);
-      mover.x = sourcePos.x;
-      mover.y = sourcePos.y;
-      mover.addChild(this.bank.children.at(-1));
-
-      const card = mover.children[0] as Card;
-
-      const animProxy = {
-        x: mover.x,
-        y: mover.y
-      };
-
-      this.isAnimating = true;
-
-      // animate to position
-      animate(animProxy, {
-        x: targetPos.x - card.x,
-        y: targetPos.y - card.y,
-        duration: 200,
-        ease: 'inOutSine',
-        onUpdate: (anim) => {
-          mover.x = animProxy.x;
-          mover.y = animProxy.y;
-        },
-        onComplete: () => {
-          toCell.addCard(card);
-          card.x = 0;
-          toCell.alignCards();
-          this.isAnimating = false;
-          resolve(true);
-        }
-      });
-    });
-  }
-
-  animateFromCellToBank(fromCell: Cell) {
-    return new Promise((resolve, _) => {
-      // get target position
-      const targetPos = this.bank.getGlobalPosition();
-      // offset by number of cards in the bank
-      targetPos.x +=
-        store.layout.CARD_OFFSET_HORIZONTAL * this.bank.children.length;
-
-      // get source position
-      const sourcePos = fromCell.getGlobalPosition();
-
-      // Add cards to a temporary stack for moving
-      const mover = new Stack(99);
-      this.scene.addChild(mover);
-      mover.x = sourcePos.x;
-      mover.y = sourcePos.y;
-      mover.addChild(fromCell.popCard());
-
-      const card = mover.children[0] as Card;
-
-      const animProxy = {
-        x: mover.x,
-        y: mover.y
-      };
-
-      this.isAnimating = true;
-
-      // animate to position
-      animate(animProxy, {
-        x: targetPos.x - card.x,
-        y: targetPos.y - card.y,
-        duration: 200,
-        ease: 'inOutSine',
-        onUpdate: (anim) => {
-          mover.x = animProxy.x;
-          mover.y = animProxy.y;
-        },
-        onComplete: () => {
-          this.bank.addChild(card);
-          card.y = 0;
-          card.x =
-            store.layout.CARD_OFFSET_HORIZONTAL *
-            (this.bank.children.length - 1);
-          this.isAnimating = false;
-          resolve(true);
-        }
-      });
-    });
-  }
-
-  animateFromCellToCell(fromCell: Cell, toCell: Cell, cards: Card[]) {
-    return new Promise((resolve, reject) => {
-      // get target position
-      const targetPos = toCell.getGlobalPosition();
-      // get source position
-      const sourcePos = fromCell.getGlobalPosition();
-
-      // Add cards to a temporary stack for moving
-      const mover = new Stack(99);
-      this.scene.addChild(mover);
-      mover.x = sourcePos.x;
-      mover.y = sourcePos.y;
-      mover.addChild(...cards);
-
-      const card = mover.children[0] as Card;
-
-      const animProxy = {
-        x: mover.x,
-        y: mover.y
-      };
-
-      this.isAnimating = true;
-
-      // animate to position
-      animate(animProxy, {
-        x: targetPos.x - card.x,
-        y:
-          targetPos.y -
-          card.y +
-          store.layout.CARD_OFFSET_VERTICAL * toCell.count,
-        duration: 200,
-        ease: 'inOutSine',
-        onUpdate: (anim) => {
-          mover.x = animProxy.x;
-          mover.y = animProxy.y;
-        },
-        onComplete: () => {
-          toCell.addCards(...mover.children);
-          toCell.alignCards();
-          this.isAnimating = false;
-          resolve(true);
-        }
-      });
-    });
-  }
-
-  animateFromHandToBank() {
-    return new Promise((resolve, reject) => {
-      // get target position
-      const targetPos = this.bank.getGlobalPosition();
-      // get hand position
-      const handPos = this.hand.getGlobalPosition();
-
-      console.log('hand children', this.hand.children);
-
-      // Add cards to a temporary stack for moving
-      const mover = new Stack(99);
-      this.scene.addChild(mover);
-      mover.x = handPos.x;
-      mover.y = handPos.y;
-      mover.scale = this.hand.scale;
-      mover.addChild(...this.hand.children);
-
-      const card = mover.children[0] as Card;
-
-      const animProxy = {
-        x: mover.x,
-        y: mover.y,
-        scale: 1.15
-      };
-
-      this.isAnimating = true;
-
-      // animate to position
-      animate(animProxy, {
-        x:
-          targetPos.x -
-          card.x +
-          store.layout.CARD_OFFSET_HORIZONTAL * this.bank.children.length,
-        y: targetPos.y - card.y,
-        scale: 1,
-        duration: 75,
-        ease: 'inOutQuad',
-        onUpdate: (anim) => {
-          mover.x = animProxy.x;
-          mover.y = animProxy.y;
-          mover.scale = animProxy.scale;
-        },
-        onComplete: () => {
-          this.bank.addChild(card);
-          card.x =
-            store.layout.CARD_OFFSET_HORIZONTAL *
-            (this.bank.children.length - 1);
-          card.y = 0;
-
-          this.hand.scale = 1;
-          this.scene.removeChild(mover);
-          mover.destroy();
-          this.isAnimating = false;
-          resolve(true);
-        }
-      });
-    });
-  }
-
-  animateFromHandToCell(targetCell: Cell) {
-    return new Promise((resolve, reject) => {
-      // get target position
-      const targetPos = targetCell.getGlobalPosition();
-      // get hand position
-      const handPos = this.hand.getGlobalPosition();
-
-      // Add cards to a temporary stack for moving
-      const mover = new Stack(99);
-      this.scene.addChild(mover);
-      mover.x = handPos.x;
-      mover.y = handPos.y;
-      mover.scale = this.hand.scale;
-      mover.addChild(...this.hand.children);
-
-      const card = mover.children[0] as Card;
-
-      const animProxy = {
-        x: mover.x,
-        y: mover.y,
-        scale: 1.15
-      };
-
-      this.isAnimating = true;
-
-      // animate to position
-      animate(animProxy, {
-        x: targetPos.x - card.x,
-        y:
-          targetPos.y -
-          card.y +
-          store.layout.CARD_OFFSET_VERTICAL * targetCell.count,
-        scale: 1,
-        duration: 75,
-        ease: 'inOutQuad',
-        onUpdate: (anim) => {
-          mover.x = animProxy.x;
-          mover.y = animProxy.y;
-          mover.scale = animProxy.scale;
-        },
-        onComplete: () => {
-          targetCell.addCards(...mover.children);
-          targetCell.alignCards();
-          this.hand.scale = 1;
-          this.scene.removeChild(mover);
-          mover.destroy();
-          this.isAnimating = false;
-          resolve(true);
-        }
-      });
-    });
-  }
-
-  animateToHand() {
-    const scaleObj = { scale: 1 };
-
-    this.isAnimating = true;
-
-    animate(scaleObj, {
-      scale: 1.15,
-      ease: 'outBack(4)',
-      duration: 200,
-      onUpdate: (anim) => {
-        this.hand.scale = scaleObj.scale;
-      },
-      onComplete: () => {
-        this.isAnimating = false;
-      }
-    });
   }
 
   createBoard() {
@@ -404,7 +136,7 @@ export default class Game {
       this.board.push(cell);
     }
 
-    this.addChild(...this.board);
+    this.view.addChild(...this.board);
   }
 
   async dealCards() {
@@ -436,7 +168,7 @@ export default class Game {
       this.deckSprites.children.pop();
 
       const cell = this.board[col];
-      this.addChild(card);
+      this.view.addChild(card);
 
       // col++;
 
@@ -454,7 +186,7 @@ export default class Game {
         duration: CARD_ANIM_SPEED_MS,
         onComplete: () => {
           // Remove the card from the main scene
-          this.scene.removeChild(card);
+          this.view.removeChild(card);
           cell.addCard(card); // moves the card to new container
           card.x = 0;
           card.y = 0;
@@ -483,7 +215,7 @@ export default class Game {
       store.layout.CARD_W,
       store.layout.CARD_H
     );
-    this.addChild(this.deckCell);
+    this.view.addChild(this.deckCell);
 
     // create the deck sprites
     this.deckSprites = new Container();
@@ -492,11 +224,11 @@ export default class Game {
 
     this.resetDeckSprites();
 
-    this.addChild(this.deckSprites);
+    this.view.addChild(this.deckSprites);
   }
 
   doCardMove(move: CellMove | BankMove) {
-    return this.animateFromHandToCell(move.to);
+    return this.animator.handToCell(move.to);
   }
 
   async drawFromDeck() {
@@ -550,14 +282,14 @@ export default class Game {
   }
 
   handleBoardClick(card: Card) {
-    if (this.hand.count) {
+    if (store.hand.count) {
       return;
     }
 
     if (this.bank.children.at(-1)?.id === card.id) {
-      this.hand.reparentChild(card);
+      store.hand.reparentChild(card);
       this.handOrigin = BANK_STACK_ID;
-      this.animateToHand();
+      this.animator.toHand();
       return;
     }
 
@@ -574,22 +306,22 @@ export default class Game {
 
     // If the selected stack is sequential, then add it to the hand.
     if (cell.isSequentialFrom(card)) {
-      this.hand.reparentChild(...cell.sliceFromCard(card));
+      store.hand.reparentChild(...cell.sliceFromCard(card));
       this.handOrigin = cell.id;
-      this.animateToHand();
+      this.animator.toHand();
     }
   }
 
   async handleHandClick() {
-    if (!this.hand.count) {
+    if (!store.hand.count) {
       return;
     }
 
-    const card = this.hand.children[0];
+    const card = store.hand.children[0];
 
     // This checks what, if anything, the top center-ish area of the topmost
     // card in the hand is intersecting.
-    const boundary = new EventBoundary(this.scene);
+    const boundary = new EventBoundary(this.view.mainScene);
     const point = card.getGlobalPosition();
     const obj: Card | Cell | Container = boundary.hitTest(
       point.x + store.layout.CARD_W / 2,
@@ -603,9 +335,9 @@ export default class Game {
         obj.label === BANK_BG ||
         obj.parent.label === BANK_LABEL) &&
       this.handOrigin === BANK_STACK_ID &&
-      this.hand.count === 1
+      store.hand.count === 1
     ) {
-      await this.animateFromHandToBank();
+      await this.animator.handToBank(this.bank);
       return;
     }
 
@@ -631,13 +363,13 @@ export default class Game {
     // If the target is where the hand originally came from, allow the user to
     // put it back.
     if (targetCellId === this.handOrigin) {
-      await this.animateFromHandToCell(targetCell);
+      await this.animator.handToCell(targetCell);
       return;
     }
 
     // If the target is the free cell, but the hand has multiple cards, disallow
     // hand placement.
-    if (targetCellId === DECK_CELL_ID && this.hand.count > 1) {
+    if (targetCellId === DECK_CELL_ID && store.hand.count > 1) {
       return;
     }
 
@@ -655,7 +387,7 @@ export default class Game {
           this.handOrigin === BANK_STACK_ID
             ? MoveType.BANK_MOVE
             : MoveType.CELL_MOVE,
-        cards: [...this.hand.children],
+        cards: [...store.hand.children],
         from: fromCell,
         to: targetCell
       });
@@ -679,7 +411,7 @@ export default class Game {
           this.handOrigin === BANK_STACK_ID
             ? MoveType.BANK_MOVE
             : MoveType.CELL_MOVE,
-        cards: [...this.hand.children],
+        cards: [...store.hand.children],
         from: fromCell,
         to: targetCell
       });
@@ -717,8 +449,8 @@ export default class Game {
 
     this.bank.eventMode = 'static';
     this.bankBg.eventMode = 'static';
-    this.addChild(this.bankBg);
-    this.addChild(this.bank);
+    this.view.addChild(this.bankBg);
+    this.view.addChild(this.bank);
 
     PubSub.subscribe(GameEvent.RESIZE, () => {
       this.bank.x =
@@ -788,7 +520,7 @@ export default class Game {
     bg.rect(0, 0, store.layout.ACE_TRAY_W, store.layout.ACE_TRAY_H);
     bg.fill('#00000033');
     this.foundationBg = bg;
-    this.addChild(this.foundationBg);
+    this.view.addChild(this.foundationBg);
 
     const positionTray = (tray: AceTray, idx) => {
       tray.x = store.layout.STACK_GAP;
@@ -803,7 +535,7 @@ export default class Game {
     });
 
     this.foundation.forEach(positionTray);
-    this.addChild(...this.foundation);
+    this.view.addChild(...this.foundation);
 
     PubSub.subscribe(GameEvent.RESIZE, () => {
       this.foundationBg.width = store.layout.ACE_TRAY_W;
@@ -812,63 +544,11 @@ export default class Game {
     });
   }
 
-  initMainScene() {
-    const { VIEW_W, VIEW_H } = store.layout;
-    this.scene = new Container();
-    this.scene.width = this.app.canvas.width;
-    this.scene.height = this.app.canvas.height;
-    this.scene.hitArea = new Rectangle(0, 0, VIEW_W, VIEW_H);
-
-    this.scene.eventMode = 'static';
-    this.scene.interactiveChildren = true;
-
-    this.scene.addEventListener('pointermove', (event) => {
-      store.mousePosition = [
-        Math.round(event.globalX),
-        Math.round(event.globalY)
-      ];
-    });
-
-    // Using the DOM style method on purpose so we can attach this handler to
-    // the capture phase. This is needed because main scene clicks need the
-    // option to stop propagation.
-    this.scene.addEventListener(
-      'pointerdown',
-      (event) => {
-        if (!this.hand.count) {
-          return;
-        }
-
-        event.stopImmediatePropagation();
-
-        this.handleHandClick();
-      },
-      { capture: true }
-    );
-
-    if (!this.app) {
-      return;
-    }
-
-    this.app.stage.addChild(this.scene);
-
-    PubSub.subscribe(GameEvent.RESIZE, () => {
-      this.scene.width = store.layout.VIEW_W;
-      this.scene.height = store.layout.VIEW_H;
-      this.scene.hitArea = new Rectangle(
-        0,
-        0,
-        store.layout.VIEW_W,
-        store.layout.VIEW_H
-      );
-    });
-  }
-
   listenForCardClick() {
     PubSub.subscribe(
       GameEvent.CARD_CLICK,
       (msg: string, data: CardClickData) => {
-        if (this.hand.count) {
+        if (store.hand.count) {
           return;
         }
 
@@ -888,7 +568,7 @@ export default class Game {
   listenForDeckClick() {
     this.deckSprites.eventMode = 'static';
     this.deckSprites.addEventListener('pointertap', async (event) => {
-      if (this.isAnimating || this.hand.count || this.deck.length < 3) {
+      if (this.isAnimating || store.hand.count || this.deck.length < 3) {
         return;
       }
 
@@ -898,6 +578,12 @@ export default class Game {
         type: MoveType.DECK_DRAW,
         cards
       });
+    });
+  }
+
+  listenForMainSceneClick() {
+    PubSub.subscribe(GameEvent.MAIN_SCENE_CLICK, () => {
+      this.handleHandClick();
     });
   }
 
@@ -976,11 +662,11 @@ export default class Game {
   }
 
   async redoBankMove(move: BankMove) {
-    return this.animateFromBankToCell(move.to);
+    return this.animator.bankToCell(this.bank, move.to);
   }
 
   async redoCellMove(move: CellMove) {
-    return await this.animateFromCellToCell(move.from, move.to, move.cards);
+    return await this.animator.cellToCell(move.from, move.to, move.cards);
   }
 
   async redoDeckDraw() {
@@ -997,7 +683,7 @@ export default class Game {
     if (this.bank.children.length) {
       this.bank.children.at(-1).eventMode = 'static';
 
-      if (!this.hand) {
+      if (!store.hand) {
         // this.checkForFoundationCards();
       }
     }
@@ -1047,70 +733,45 @@ export default class Game {
   }
 
   async undoBankMove(move: BankMove) {
-    return this.animateFromCellToBank(move.to);
+    return this.animator.cellToBank(this.bank, move.to);
   }
 
   async undoCellMove(move: CellMove) {
-    return this.animateFromCellToCell(move.to, move.from, move.cards);
+    return this.animator.cellToCell(move.to, move.from, move.cards);
   }
 
   undoDeckDraw(move: DeckDraw) {
     return new Promise((resolve, reject) => {
       const start = this.bank.children.length - 3;
 
-      requestAnimationFrame(() => {
+      requestAnimationFrame(async () => {
         const cards = [...move.cards];
 
-        animate(cards, {
-          x: `-=${store.layout.CARD_W}`,
-          y: `-=${store.layout.CARD_H / 6}`,
-          alpha: {
-            to: 0,
-            ease: 'inQuint'
-          },
-          duration: 150,
-          delay: stagger(75),
-          ease: 'inQuad',
-          onComplete: () => {
-            this.deck.push(...move.cards);
-            this.bank.removeChild(...move.cards);
-            this.resetDeckSprites();
-            cards.forEach((card) => {
-              card.x = 0;
-              card.alpha = 1;
-            });
-          }
+        const undrawPromise = this.animator.undoDeckDraw(cards, () => {
+          this.deck.push(...move.cards);
+          this.bank.removeChild(...move.cards);
+          this.resetDeckSprites();
+          cards.forEach((card) => {
+            card.x = 0;
+            card.alpha = 1;
+          });
         });
 
         const deckCards = this.deckSprites.children;
 
-        const tl = createTimeline({
-          duration: 1000,
-          onComplete: () => {
-            resolve(true);
-          }
-        });
+        const cascadePromise = this.animator.deckCascade(deckCards);
 
-        tl.add(deckCards, {
-          y: '-=10',
-          duration: 100,
-          ease: 'outSine'
-        });
+        await Promise.all([undrawPromise, cascadePromise]);
 
-        tl.add(deckCards, {
-          y: '+=10',
-          duration: 100,
-          ease: 'outSine',
-          delay: stagger(10)
-        });
+        resolve(true);
       });
     });
   }
 
   update(ticker: Ticker) {
-    if (this.hand) {
-      this.hand.x = store.mousePosition[0];
-      this.hand.y = store.mousePosition[1];
+    if (store.hand) {
+      store.hand.x = store.mousePosition[0];
+      store.hand.y = store.mousePosition[1];
     }
   }
 }
