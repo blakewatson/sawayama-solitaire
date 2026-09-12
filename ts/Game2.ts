@@ -92,24 +92,24 @@ export default class Game {
     // start ticker
     Ticker.shared.add(this.update, this);
 
-    // this.dealCards().then(() => {
-    //   this.listenForCardClick();
-    //   this.listenForDeckClick();
-    //   this.initDomUi();
-    // });
+    this.dealCards().then(() => {
+      this.listenForCardClick();
+      this.listenForDeckClick();
+      this.initDomUi();
+    });
 
     // this.deck = [];
     // this.resetDeckSprites();
 
-    const cardA = new Card(Rank.Three, Suit.Diamonds);
-    this.board.at(0).addCard(cardA);
+    // const cardA = new Card(Rank.Three, Suit.Diamonds);
+    // this.board.at(0).addCard(cardA);
 
-    const cardB = new Card(Rank.Two, Suit.Clubs);
-    this.board.at(1).addCard(cardB);
+    // const cardB = new Card(Rank.Two, Suit.Clubs);
+    // this.board.at(1).addCard(cardB);
 
-    this.listenForCardClick();
-    this.listenForDeckClick();
-    this.initDomUi();
+    // this.listenForCardClick();
+    // this.listenForDeckClick();
+    // this.initDomUi();
   }
 
   addChild(...children: Container[]) {
@@ -117,7 +117,6 @@ export default class Game {
   }
 
   animateFromBankToCell(toCell: Cell) {
-    console.log(this.board.at(2) === toCell);
     return new Promise((resolve, _) => {
       // get target position
       const targetPos = toCell.getGlobalPosition();
@@ -1058,13 +1057,32 @@ export default class Game {
   undoDeckDraw(move: DeckDraw) {
     return new Promise((resolve, reject) => {
       const start = this.bank.children.length - 3;
-      this.bank.removeChildren(start);
-      this.refreshBank();
-      this.deck.push(...move.cards);
-      this.resetDeckSprites();
 
       requestAnimationFrame(() => {
-        const cards = this.deckSprites.children;
+        const cards = [...move.cards];
+
+        animate(cards, {
+          x: `-=${store.layout.CARD_W}`,
+          y: `-=${store.layout.CARD_H / 6}`,
+          alpha: {
+            to: 0,
+            ease: 'inQuint'
+          },
+          duration: 150,
+          delay: stagger(75),
+          ease: 'inQuad',
+          onComplete: () => {
+            this.deck.push(...move.cards);
+            this.bank.removeChild(...move.cards);
+            this.resetDeckSprites();
+            cards.forEach((card) => {
+              card.x = 0;
+              card.alpha = 1;
+            });
+          }
+        });
+
+        const deckCards = this.deckSprites.children;
 
         const tl = createTimeline({
           duration: 1000,
@@ -1073,13 +1091,13 @@ export default class Game {
           }
         });
 
-        tl.add(cards, {
+        tl.add(deckCards, {
           y: '-=10',
           duration: 100,
           ease: 'outSine'
         });
 
-        tl.add(cards, {
+        tl.add(deckCards, {
           y: '+=10',
           duration: 100,
           ease: 'outSine',
