@@ -3,7 +3,7 @@ import { Spritesheet } from 'pixi.js';
 import { BANK_LABEL, Suit } from './constants';
 import Card from './entities/Card';
 import Cell from './entities/Cell';
-import Stack from './entities/Stack';
+import Hand from './entities/Hand';
 
 export enum MoveType {
   BANK_MOVE = 'BANK_MOVE',
@@ -47,7 +47,7 @@ interface GameState {
 }
 
 interface IStore {
-  hand: Stack | null;
+  hand: Hand | null;
   layout: {
     CARD_W: number;
     CARD_H: number;
@@ -62,6 +62,7 @@ interface IStore {
     VIEW_H: number;
   };
   makeDesktopLayout: () => void;
+  makeMobileLayout: () => void;
   mousePosition: [number, number];
   moves: Signal<GameMove[]>;
   movesCache: Signal<GameMove[]>;
@@ -89,6 +90,7 @@ export const store: IStore = {
   moves: signal([]),
   movesCache: signal([]),
   spritesheet: null,
+
   makeDesktopLayout() {
     store.layout.CARD_W = 90;
     store.layout.CARD_H = Math.round(store.layout.CARD_W * 1.33333333);
@@ -119,6 +121,36 @@ export const store: IStore = {
       store.layout.STACK_GAP / 2 +
       store.layout.CARD_H +
       store.layout.STACK_GAP;
+  },
+
+  makeMobileLayout() {
+    store.layout.CARD_W = 50;
+    store.layout.CARD_H = Math.round(store.layout.CARD_W * 1.33333333);
+    store.layout.CARD_OFFSET_VERTICAL = store.layout.CARD_H / 4.75;
+    store.layout.CARD_OFFSET_HORIZONTAL = store.layout.CARD_W / 4.25;
+    store.layout.STACK_GAP = 10;
+
+    store.layout.VIEW_W =
+      (store.layout.CARD_W + store.layout.STACK_GAP) * 7 +
+      store.layout.STACK_GAP;
+
+    store.layout.ACE_TRAY_W = store.layout.VIEW_W;
+    store.layout.ACE_TRAY_H = store.layout.CARD_H + store.layout.STACK_GAP * 2;
+
+    store.layout.DECK_POS = {
+      x: store.layout.STACK_GAP,
+      y: store.layout.ACE_TRAY_H + store.layout.STACK_GAP
+    };
+
+    store.layout.BOARD_Y =
+      store.layout.DECK_POS.y + store.layout.CARD_H + store.layout.STACK_GAP;
+
+    store.layout.VIEW_H =
+      store.layout.ACE_TRAY_H +
+      store.layout.STACK_GAP +
+      store.layout.CARD_H +
+      store.layout.STACK_GAP +
+      store.layout.CARD_H * 5;
   }
 };
 

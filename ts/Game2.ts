@@ -20,8 +20,6 @@ import {
   DECK_CELL_ID,
   DECK_CELL_LABEL,
   GameEvent,
-  HAND_STACK_ID,
-  HAND_STACK_LABEL,
   Rank,
   Suit
 } from './constants';
@@ -30,7 +28,7 @@ import ViewController from './controllers/ViewController';
 import AceTray from './entities/AceTray';
 import Card, { CardClickData } from './entities/Card';
 import Cell from './entities/Cell';
-import Stack from './entities/Stack';
+import Hand from './entities/Hand';
 import {
   BankMove,
   CellMove,
@@ -58,7 +56,6 @@ export default class Game {
   deckCell: Cell | null = null;
   deckSprites: Container | null = null;
   foundation: AceTray[] = [];
-  foundationBg: Graphics | null = null;
   handOffset: [number, number] = [0, 0];
   handOrigin = 0;
   isAnimating = false;
@@ -90,7 +87,7 @@ export default class Game {
     // create the card bank
     this.initBank();
     // init the hand stack
-    store.hand = new Stack(HAND_STACK_ID, HAND_STACK_LABEL);
+    store.hand = new Hand();
     store.hand.eventMode = 'none';
     this.view.addChild(store.hand);
 
@@ -338,7 +335,7 @@ export default class Game {
       store.hand.count === 1
     ) {
       await this.animator.handToBank(this.bank);
-      return;
+      return true;
     }
 
     // Otherwise, the bank is not a valid target for the hand.
@@ -364,7 +361,7 @@ export default class Game {
     // put it back.
     if (targetCellId === this.handOrigin) {
       await this.animator.handToCell(targetCell);
-      return;
+      return true;
     }
 
     // If the target is the free cell, but the hand has multiple cards, disallow
@@ -391,7 +388,7 @@ export default class Game {
         from: fromCell,
         to: targetCell
       });
-      return;
+      return true;
     }
 
     // If the target is a non-empty cell and the top card in the hand can be
@@ -415,7 +412,7 @@ export default class Game {
         from: fromCell,
         to: targetCell
       });
-      return;
+      return true;
     }
   }
 
@@ -515,33 +512,18 @@ export default class Game {
   }
 
   initFoundation() {
-    // create the dark background
-    const bg = new Graphics();
-    bg.rect(0, 0, store.layout.ACE_TRAY_W, store.layout.ACE_TRAY_H);
-    bg.fill('#00000033');
-    this.foundationBg = bg;
-    this.view.addChild(this.foundationBg);
-
-    const positionTray = (tray: AceTray, idx) => {
-      tray.x = store.layout.STACK_GAP;
-      tray.y =
-        store.layout.STACK_GAP +
-        idx * (store.layout.CARD_H + store.layout.STACK_GAP);
-    };
-
     Object.values(Suit).forEach((suit, idx) => {
       const tray = new AceTray(suit);
       this.foundation.push(tray);
     });
 
-    this.foundation.forEach(positionTray);
-    this.view.addChild(...this.foundation);
+    this.view.positionFoundationTrays(this.foundation);
 
-    PubSub.subscribe(GameEvent.RESIZE, () => {
-      this.foundationBg.width = store.layout.ACE_TRAY_W;
-      this.foundationBg.height = store.layout.ACE_TRAY_H;
-      this.foundation.forEach(positionTray);
-    });
+    // PubSub.subscribe(GameEvent.RESIZE, () => {
+    //   this.foundationBg.width = store.layout.ACE_TRAY_W;
+    //   this.foundationBg.height = store.layout.ACE_TRAY_H;
+    //   this.foundation.forEach(positionTray);
+    // });
   }
 
   listenForCardClick() {
@@ -582,8 +564,11 @@ export default class Game {
   }
 
   listenForMainSceneClick() {
-    PubSub.subscribe(GameEvent.MAIN_SCENE_CLICK, () => {
-      this.handleHandClick();
+    PubSub.subscribe(GameEvent.MAIN_SCENE_CLICK, async () => {
+      const result = await this.handleHandClick();
+
+      console.log('result', result);
+
     });
   }
 
@@ -769,7 +754,7 @@ export default class Game {
   }
 
   update(ticker: Ticker) {
-    if (store.hand) {
+    if (true) {
       store.hand.x = store.mousePosition[0];
       store.hand.y = store.mousePosition[1];
     }

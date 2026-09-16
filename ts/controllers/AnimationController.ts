@@ -1,4 +1,4 @@
-import { animate, createTimeline, stagger } from 'animejs';
+import { animate, createTimeline, JSAnimation, stagger } from 'animejs';
 import { Container, ContainerChild } from 'pixi.js';
 import Card from '../entities/Card';
 import Cell from '../entities/Cell';
@@ -7,14 +7,24 @@ import { store } from '../store';
 import ViewController from './ViewController';
 
 export default class AnimationController {
+  currentAnimation: JSAnimation | null = null;
   isAnimating = false;
+  handIndicator: Container | null = null;
   view: ViewController | null = null;
 
   constructor(view: ViewController) {
     this.view = view;
+
+    if (this.isMobile) {
+      this.handIndicator = new Container();
+    }
   }
 
-  bankToCell(bank: Container<Card>, toCell: Cell) {
+  get isMobile() {
+    return this.view.isMobile;
+  }
+
+  bankToCell(bank: Container<Card>, toCell: Cell, duration = 200) {
     return new Promise((resolve, _) => {
       // get target position
       const targetPos = toCell.getGlobalPosition();
@@ -38,13 +48,13 @@ export default class AnimationController {
       this.isAnimating = true;
 
       // animate to position
-      animate(animProxy, {
+      this.currentAnimation = animate(animProxy, {
         x: targetPos.x - card.x,
         y:
           targetPos.y -
           card.y +
           (store.layout.CARD_OFFSET_VERTICAL * toCell.count - 1),
-        duration: 200,
+        duration,
         ease: 'inOutSine',
         onUpdate: (anim) => {
           mover.x = animProxy.x;
@@ -61,7 +71,7 @@ export default class AnimationController {
     });
   }
 
-  cellToBank(bank: Container<Card>, fromCell: Cell) {
+  cellToBank(bank: Container<Card>, fromCell: Cell, duration = 200) {
     return new Promise((resolve, _) => {
       // get target position
       const targetPos = bank.getGlobalPosition();
@@ -88,10 +98,10 @@ export default class AnimationController {
       this.isAnimating = true;
 
       // animate to position
-      animate(animProxy, {
+      this.currentAnimation = animate(animProxy, {
         x: targetPos.x - card.x,
         y: targetPos.y - card.y,
-        duration: 200,
+        duration,
         ease: 'inOutSine',
         onUpdate: (anim) => {
           mover.x = animProxy.x;
@@ -109,7 +119,7 @@ export default class AnimationController {
     });
   }
 
-  cellToCell(fromCell: Cell, toCell: Cell, cards: Card[]) {
+  cellToCell(fromCell: Cell, toCell: Cell, cards: Card[], duration = 200) {
     return new Promise((resolve, reject) => {
       // get target position
       const targetPos = toCell.getGlobalPosition();
@@ -133,13 +143,13 @@ export default class AnimationController {
       this.isAnimating = true;
 
       // animate to position
-      animate(animProxy, {
+      this.currentAnimation = animate(animProxy, {
         x: targetPos.x - card.x,
         y:
           targetPos.y -
           card.y +
           store.layout.CARD_OFFSET_VERTICAL * toCell.count,
-        duration: 200,
+        duration,
         ease: 'inOutSine',
         onUpdate: (anim) => {
           mover.x = animProxy.x;
@@ -157,9 +167,12 @@ export default class AnimationController {
 
   deckCascade(deckCards: ContainerChild[]) {
     return new Promise((resolve, reject) => {
+      this.isAnimating = true;
+
       const tl = createTimeline({
         duration: 1000,
         onComplete: () => {
+          this.isAnimating = false;
           resolve(true);
         }
       });
@@ -179,14 +192,12 @@ export default class AnimationController {
     });
   }
 
-  handToBank(bank: Container<Card>) {
+  handToBank(bank: Container<Card>, duration = 75) {
     return new Promise((resolve, reject) => {
       // get target position
       const targetPos = bank.getGlobalPosition();
       // get hand position
       const handPos = store.hand.getGlobalPosition();
-
-      console.log('hand children', store.hand.children);
 
       // Add cards to a temporary stack for moving
       const mover = new Stack(99);
@@ -207,14 +218,14 @@ export default class AnimationController {
       this.isAnimating = true;
 
       // animate to position
-      animate(animProxy, {
+      this.currentAnimation = animate(animProxy, {
         x:
           targetPos.x -
           card.x +
           store.layout.CARD_OFFSET_HORIZONTAL * bank.children.length,
         y: targetPos.y - card.y,
         scale: 1,
-        duration: 75,
+        duration,
         ease: 'inOutQuad',
         onUpdate: (anim) => {
           mover.x = animProxy.x;
@@ -237,7 +248,7 @@ export default class AnimationController {
     });
   }
 
-  handToCell(targetCell: Cell) {
+  handToCell(targetCell: Cell, duration = 75) {
     return new Promise((resolve, reject) => {
       // get target position
       const targetPos = targetCell.getGlobalPosition();
@@ -263,7 +274,7 @@ export default class AnimationController {
       this.isAnimating = true;
 
       // animate to position
-      animate(animProxy, {
+      this.currentAnimation = animate(animProxy, {
         x: targetPos.x - card.x,
         y:
           targetPos.y -
@@ -290,12 +301,17 @@ export default class AnimationController {
     });
   }
 
+
   toHand() {
+    // if (this.isMobile) {
+    //   return;
+    // }
+
     const scaleObj = { scale: 1 };
 
     this.isAnimating = true;
 
-    animate(scaleObj, {
+    this.currentAnimation = animate(scaleObj, {
       scale: 1.15,
       ease: 'outBack(4)',
       duration: 200,
@@ -310,7 +326,7 @@ export default class AnimationController {
 
   undoDeckDraw(cards: Card[], onComplete: Function) {
     return new Promise((resolve, _) => {
-      animate(cards, {
+      this.currentAnimation = animate(cards, {
         x: `-=${store.layout.CARD_W}`,
         y: `-=${store.layout.CARD_H / 6}`,
         alpha: {

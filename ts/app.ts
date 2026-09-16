@@ -22,8 +22,10 @@ async function init() {
 
   app = new Application();
 
-  if (window.matchMedia('(min-width: 980px)').matches) {
+  if (window.matchMedia('(min-width: 550px)').matches) {
     store.makeDesktopLayout();
+  } else {
+    store.makeMobileLayout();
   }
 
   await app.init({

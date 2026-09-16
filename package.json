@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "watch": "esbuild ts/app.ts --outfile=js/app.js --bundle --servedir=. --serve=8989",
+    "watch": "esbuild ts/app.ts --outfile=js/app.js --bundle --servedir=. --serve",
     "typecheck": "tsc --noEmit --skipLibCheck",
     "typecheck:watch": "tsc --noEmit --skipLibCheck --watch --preserveWatchOutput",
     "serve": "concurrently --kill-others --names esbuild,types \"npm:watch\" \"npm:typecheck:watch\""

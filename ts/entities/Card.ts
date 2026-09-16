@@ -1,12 +1,5 @@
 import { DropShadowFilter } from 'pixi-filters';
-import {
-  Container,
-  FederatedPointerEvent,
-  Point,
-  Sprite,
-  Texture,
-  Ticker
-} from 'pixi.js';
+import { Container, Point, Sprite, Texture, Ticker } from 'pixi.js';
 import PubSub from 'pubsub-js';
 import { app } from '../app';
 import { GameEvent, Rank, Suit } from '../constants';
@@ -14,7 +7,8 @@ import { store } from '../store';
 
 export interface CardClickData {
   card: Card;
-  mouseEvent: FederatedPointerEvent;
+  mouseX: number;
+  mouseY: number;
 }
 
 export default class Card extends Container {
@@ -68,9 +62,20 @@ export default class Card extends Container {
       'pointerdown',
       (event) => {
         console.log('card pointerdown', event);
-        PubSub.publish(GameEvent.CARD_CLICK, {
+
+        store.mousePosition[0] = event.globalX;
+        store.mousePosition[1] = event.globalY;
+        store.hand.x = event.globalX;
+        store.hand.y = event.globalY;
+
+        const clickData: CardClickData = {
           card: this,
-          mouseEvent: event
+          mouseX: event.globalX,
+          mouseY: event.globalY
+        };
+
+        requestAnimationFrame(() => {
+          PubSub.publish(GameEvent.CARD_CLICK, clickData);
         });
       },
       { capture: true }

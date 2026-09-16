@@ -13,19 +13,26 @@ body {
   max-width: 980px;
 }
 
+h1 {
+  font-size: 20px;
+}
+
 #board {
   display: flex;
   justify-content: center;
   align-items: center;
   /* width: 980px; */
   /* height: 606px; */
-  aspect-ratio: 1800 / 1212;
+  /*aspect-ratio: 1800 / 1212;*/
+  /* width: fit-content; */
   background: #505459;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 #board canvas {
   display: block;
-  max-width: 100%;
+  width: 100%;
 }
 
 [type='button'] {
@@ -44,11 +51,17 @@ body {
 }
 
 .buttons {
-  position: absolute;
-  top: 9px;
-  right: 18px;
-  display: flex;
-  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+@media (min-width: 550px) {
+  .buttons {
+    position: absolute;
+    top: 9px;
+    right: 18px;
+    display: flex;
+    gap: 1rem;
+  }
 }
 
 .game-over {
