@@ -28,6 +28,7 @@ h1 {
   background: #505459;
   user-select: none;
   -webkit-user-select: none;
+  touch-action: none;
 }
 
 #board canvas {

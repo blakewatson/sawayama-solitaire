@@ -1,8 +1,7 @@
 import { DropShadowFilter } from 'pixi-filters';
 import { Container, Point, Sprite, Texture, Ticker } from 'pixi.js';
-import PubSub from 'pubsub-js';
 import { app } from '../app';
-import { GameEvent, Rank, Suit } from '../constants';
+import { Rank, Suit } from '../constants';
 import { store } from '../store';
 
 export interface CardClickData {
@@ -54,32 +53,6 @@ export default class Card extends Container {
     this.id = `${rank}_${suit}`;
 
     this.eventMode = 'static';
-
-    // Using the DOM style method on purpose so we can attach this handler to
-    // the capture phase. This is needed because main scene clicks need the
-    // option to stop propagation.
-    this.addEventListener(
-      'pointerdown',
-      (event) => {
-        console.log('card pointerdown', event);
-
-        store.mousePosition[0] = event.globalX;
-        store.mousePosition[1] = event.globalY;
-        store.hand.x = event.globalX;
-        store.hand.y = event.globalY;
-
-        const clickData: CardClickData = {
-          card: this,
-          mouseX: event.globalX,
-          mouseY: event.globalY
-        };
-
-        requestAnimationFrame(() => {
-          PubSub.publish(GameEvent.CARD_CLICK, clickData);
-        });
-      },
-      { capture: true }
-    );
 
     Ticker.shared.add(this.update, this);
   }

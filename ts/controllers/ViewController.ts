@@ -1,5 +1,4 @@
 import { Application, Container, Graphics, Rectangle } from 'pixi.js';
-import { GameEvent } from '../constants';
 import AceTray from '../entities/AceTray';
 import { store } from '../store';
 
@@ -52,46 +51,11 @@ export default class ViewController {
     this.mainScene.eventMode = 'static';
     this.mainScene.interactiveChildren = true;
 
-    this.mainScene.addEventListener('pointermove', (event) => {
-      store.mousePosition = [
-        Math.round(event.globalX),
-        Math.round(event.globalY)
-      ];
-    });
-
-    // Using the DOM style method on purpose so we can attach this handler to
-    // the capture phase. This is needed because main scene clicks need the
-    // option to stop propagation.
-    this.mainScene.addEventListener(
-      'pointerdown',
-      (event) => {
-        if (!store.hand.count) {
-          return;
-        }
-
-        event.stopImmediatePropagation();
-
-        PubSub.publish(GameEvent.MAIN_SCENE_CLICK);
-      },
-      { capture: true }
-    );
-
     if (!this.app) {
       return;
     }
 
     this.app.stage.addChild(this.mainScene);
-    `.ww1`;
-    // PubSub.subscribe(GameEvent.RESIZE, () => {.wi
-    //   this.mainScene.width = store.layout.VIEW_W;
-    //   this.mainScene.height = store.layout.VIEW_H;
-    //   this.mainScene.hitArea = new Rectangle(
-    //     0,
-    //     0,
-    //     store.layout.VIEW_W,
-    //     store.layout.VIEW_H
-    //   );
-    // });
   }
 
   positionFoundationTrays(foundation: AceTray[]) {

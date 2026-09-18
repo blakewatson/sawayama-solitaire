@@ -21,18 +21,24 @@ export enum Rank {
   King = 'k'
 }
 
+// View labels
 export const BANK_BG = 'BANK_BG';
 export const BANK_LABEL = 'BANK';
 export const BOARD_CELL_LABEL = 'BOARD_CELL';
 export const CARD_LABEL = 'CARD';
 export const CELL_STACK_LABEL = 'CELL_STACK';
 export const DECK_CELL_LABEL = 'DECK_CELL';
+export const DECK_LABEL = 'DECK';
 export const HAND_STACK_LABEL = 'HAND_STACK';
 
-// View
-
-// export const VIEW_W = 1200;
-// export const VIEW_H = 900;
+// View IDs
+export const BANK_STACK_ID = 7;
+export const DECK_CELL_ID = 8;
+export const HAND_STACK_ID = 9;
+export const FOUNDATION_CLUBS_ID = 10;
+export const FOUNDATION_DIAMONDS_ID = 11;
+export const FOUNDATION_HEARTS_ID = 12;
+export const FOUNDATION_SPADES_ID = 13;
 
 // Colors
 export const COLOR_BG = '#505459';
@@ -42,16 +48,9 @@ export enum GameEvent {
   CARD_CLICK = 'CARD_CLICK',
   CELL_CLICK = 'CELL_CLICK',
   RESIZE = 'RESIZE',
-  MAIN_SCENE_CLICK = 'MAIN_SCENE_CLICK',
+  MAIN_SCENE_CLICK = 'MAIN_SCENE_CLICK'
 }
 
 // Misc
-export const BANK_STACK_ID = 7;
-export const DECK_CELL_ID = 8;
-export const HAND_STACK_ID = 9;
-export const FOUNDATION_CLUBS_ID = 10;
-export const FOUNDATION_DIAMONDS_ID = 11;
-export const FOUNDATION_HEARTS_ID = 12;
-export const FOUNDATION_SPADES_ID = 13;
-
 export const CARD_ANIM_SPEED_MS = 100;
+export const CARD_DRAG_THRESHOLD = 10;

@@ -1,5 +1,5 @@
 import { Container, FederatedPointerEvent, Graphics } from 'pixi.js';
-import { CELL_STACK_LABEL, GameEvent } from '../constants';
+import { CELL_STACK_LABEL } from '../constants';
 import { store } from '../store';
 import Card from './Card';
 import Stack from './Stack';
@@ -46,20 +46,6 @@ export default class Cell extends Container {
     this.stack = new Stack(this.id, CELL_STACK_LABEL);
     this.stack.eventMode = 'static';
     this.addChild(this.stack);
-
-    // Using the DOM style method on purpose so we can attach this handler to
-    // the capture phase. This is needed because main scene clicks need the
-    // option to stop propagation.
-    this.addEventListener(
-      'pointerdown',
-      (event) => {
-        PubSub.publish(GameEvent.CELL_CLICK, {
-          cell: this,
-          mouseEvent: event
-        });
-      },
-      { capture: true }
-    );
   }
 
   get count() {

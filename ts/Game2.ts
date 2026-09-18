@@ -1,32 +1,29 @@
-import { animate } from 'animejs';
 import { DropShadowFilter } from 'pixi-filters';
 import {
   Application,
   Container,
-  EventBoundary,
   Graphics,
   Point,
   Sprite,
   Ticker
 } from 'pixi.js';
-import PubSub from 'pubsub-js';
 import { app } from './app';
 import {
   BANK_BG,
   BANK_LABEL,
   BANK_STACK_ID,
   BOARD_CELL_LABEL,
-  CARD_ANIM_SPEED_MS,
   DECK_CELL_ID,
   DECK_CELL_LABEL,
-  GameEvent,
+  DECK_LABEL,
   Rank,
   Suit
 } from './constants';
 import AnimationController from './controllers/AnimationController';
+import InputController, { InputState } from './controllers/InputController';
 import ViewController from './controllers/ViewController';
 import AceTray from './entities/AceTray';
-import Card, { CardClickData } from './entities/Card';
+import Card from './entities/Card';
 import Cell from './entities/Cell';
 import Hand from './entities/Hand';
 import {
@@ -58,7 +55,7 @@ export default class Game {
   foundation: AceTray[] = [];
   handOffset: [number, number] = [0, 0];
   handOrigin = 0;
-  isAnimating = false;
+  input: InputController | null = null;
   view: ViewController | null = null;
 
   constructor(app: Application) {
@@ -95,9 +92,10 @@ export default class Game {
     Ticker.shared.add(this.update, this);
 
     this.dealCards().then(() => {
-      this.listenForCardClick();
-      this.listenForDeckClick();
-      this.listenForMainSceneClick();
+      this.input = new InputController(this.view, {
+        tryRelease: this.tryRelease.bind(this),
+        trySelect: this.trySelect.bind(this)
+      });
       this.initDomUi();
     });
 
@@ -110,8 +108,11 @@ export default class Game {
     // const cardB = new Card(Rank.Two, Suit.Clubs);
     // this.board.at(1).addCard(cardB);
 
-    // this.listenForCardClick();
-    // this.listenForDeckClick();
+    // this.input = new InputController(this.view, {
+    //   tryRelease: this.tryRelease.bind(this),
+    //   trySelect: this.trySelect.bind(this)
+    // });
+
     // this.initDomUi();
   }
 
@@ -155,51 +156,9 @@ export default class Game {
   }
 
   dealNextCard(col = 0) {
-    return new Promise((resolve, reject) => {
-      // get the top card
-      const card = this.deck.pop();
-      card.x = store.layout.DECK_POS.x;
-      card.y = store.layout.DECK_POS.y - this.deckSprites.children.length * 0.5;
-
-      // make the deck visibly smaller
-      this.deckSprites.children.pop();
-
-      const cell = this.board[col];
-      this.view.addChild(card);
-
-      // col++;
-
-      // if (col === 7) {
-      //   start++;
-      //   col = start;
-      // }
-
-      this.isAnimating = true;
-
-      animate(card, {
-        x: cell.x,
-        y: cell.nextCardPosY,
-        ease: 'easeInOutSine',
-        duration: CARD_ANIM_SPEED_MS,
-        onComplete: () => {
-          // Remove the card from the main scene
-          this.view.removeChild(card);
-          cell.addCard(card); // moves the card to new container
-          card.x = 0;
-          card.y = 0;
-          cell.alignCards();
-          // card.y = store.layout.CARD_OFFSET_VERTICAL * (cell.children.length - 1);
-          card.eventMode = 'static';
-
-          // if (start < 7) {
-          //   return this.dealNextCard(start, col).then(() => resolve(true));
-          // }
-
-          this.isAnimating = false;
-          resolve(true);
-        }
-      });
-    });
+    const card = this.deck.pop();
+    const cell = this.board[col];
+    return this.animator.dealCard(card, cell);
   }
 
   displayDeck() {
@@ -216,8 +175,10 @@ export default class Game {
 
     // create the deck sprites
     this.deckSprites = new Container();
+    this.deckSprites.label = DECK_LABEL;
     this.deckSprites.x = store.layout.DECK_POS.x;
     this.deckSprites.y = store.layout.DECK_POS.y;
+    this.deckSprites.eventMode = 'static';
 
     this.resetDeckSprites();
 
@@ -229,11 +190,9 @@ export default class Game {
   }
 
   async drawFromDeck() {
-    if (this.isAnimating) {
+    if (this.animator.isAnimating) {
       return;
     }
-
-    this.isAnimating = true;
 
     for (let i = 0; i < 3; i++) {
       if (!this.deck.length) {
@@ -243,38 +202,15 @@ export default class Game {
       this.bank.addChild(card);
       card.x = -store.layout.STACK_GAP - store.layout.CARD_W;
       card.y = -this.deckSprites.children.length * 0.5;
-      await animateCard.bind(this)(card);
+      await this.animator.drawCardFromDeck(card, this.bank.children.length);
       card.eventMode = 'static';
     }
-
-    this.isAnimating = false;
 
     this.refreshBank();
 
     // if the deck is out of cards, activate the free cell
     if (!this.deck.length) {
       this.deckCell.eventMode = 'static';
-    }
-
-    function animateCard(card: Card) {
-      return new Promise((resolve, reject) => {
-        animate(card, {
-          x:
-            store.layout.CARD_OFFSET_HORIZONTAL *
-            (this.bank.children.length - 1),
-          y: 0,
-          duration: CARD_ANIM_SPEED_MS,
-          ease: 'easeOutSine',
-          onChangeBegin: () => {
-            this.deckSprites.removeChildAt(
-              this.deckSprites.children.length - 1
-            );
-          },
-          onComplete: () => {
-            resolve(true);
-          }
-        });
-      });
     }
   }
 
@@ -309,21 +245,257 @@ export default class Game {
     }
   }
 
-  async handleHandClick() {
+  initBank() {
+    this.bank = new Container({ label: BANK_LABEL });
+    this.bank.x =
+      store.layout.DECK_POS.x + store.layout.CARD_W + store.layout.STACK_GAP;
+    this.bank.y = store.layout.DECK_POS.y;
+
+    this.bankBg = new Container();
+    this.bankBg.label = BANK_BG;
+    this.bankBg.x = this.bank.x;
+    this.bankBg.y = this.bank.y;
+
+    const bankBgGraphic = new Graphics();
+    const bankW = store.layout.VIEW_W - this.bank.x - store.layout.STACK_GAP;
+    const bankH = store.layout.CARD_H;
+
+    bankBgGraphic
+      .rect(0, 0, bankW, bankH)
+      .fill('#00000011')
+      .rect(0, 0, bankW, 2)
+      .fill('#00000033')
+      .rect(0, 2, 2, bankH)
+      .fill('#00000033')
+      .rect(bankW - 2, 2, 2, bankH - 4)
+      .fill('#ffffff10')
+      .rect(0, bankH - 2, bankW, 2)
+      .fill('#ffffff10');
+    this.bankBg.addChild(bankBgGraphic);
+
+    this.bank.eventMode = 'static';
+    this.bankBg.eventMode = 'static';
+    this.view.addChild(this.bankBg);
+    this.view.addChild(this.bank);
+  }
+
+  initDomUi() {
+    // show the row of buttons
+    document.querySelector('.buttons').removeAttribute('hidden');
+
+    const undoButton = document.querySelector(
+      '[data-undo]'
+    ) as HTMLButtonElement;
+    const redoButton = document.querySelector(
+      '[data-redo]'
+    ) as HTMLButtonElement;
+    const resetButtons = Array.from(
+      document.querySelectorAll('.game-over button, .reset-button')
+    ) as HTMLButtonElement[];
+
+    // undo
+    undoButton.addEventListener('click', () => {
+      if (this.animator.isAnimating) {
+        return;
+      }
+
+      this.moveUndo();
+    });
+
+    // redo
+    redoButton.addEventListener('click', () => {
+      if (this.animator.isAnimating) {
+        return;
+      }
+
+      this.moveRedo();
+    });
+
+    // reset
+    resetButtons.forEach((el) => {
+      el.addEventListener('click', () => {
+        // this.reset();
+      });
+    });
+
+    // Disable the undo and redo buttons as needed when the moves and movesCache
+    // arrays change.
+    store.moves.subscribe((moves) => {
+      undoButton.disabled = moves.length === 0;
+    });
+    store.movesCache.subscribe((movesCache) => {
+      redoButton.disabled = movesCache.length === 0;
+    });
+  }
+
+  initFoundation() {
+    Object.values(Suit).forEach((suit, idx) => {
+      const tray = new AceTray(suit);
+      this.foundation.push(tray);
+    });
+
+    this.view.positionFoundationTrays(this.foundation);
+  }
+
+  getHandOriginObj() {
+    if (this.handOrigin === BANK_STACK_ID) {
+      return this.bank;
+    }
+
+    return this.board.find((cell) => cell.id === this.handOrigin);
+  }
+
+  async moveAdd(move: GameMove, resetCache = true) {
+    if (resetCache) {
+      store.movesCache.value = [];
+    }
+
+    if (move.type === MoveType.BANK_MOVE) {
+      signalPush(store.moves, move);
+      await this.doCardMove(move);
+      this.refreshBank();
+      return;
+    }
+
+    if (move.type === MoveType.CELL_MOVE) {
+      signalPush(store.moves, move);
+      await this.doCardMove(move);
+      return;
+    }
+
+    if (move.type === MoveType.DECK_DRAW) {
+      signalPush(store.moves, move);
+      await this.drawFromDeck();
+      return;
+    }
+  }
+
+  async moveRedo() {
+    if (!store.movesCache.value.length || this.animator.isAnimating) {
+      return;
+    }
+
+    const move = signalPop(store.movesCache);
+
+    if (move.type === MoveType.BANK_MOVE) {
+      await this.redoBankMove(move);
+      signalPush(store.moves, move);
+      return;
+    }
+
+    if (move.type === MoveType.CELL_MOVE) {
+      await this.redoCellMove(move);
+      signalPush(store.moves, move);
+      return;
+    }
+
+    if (move.type === MoveType.DECK_DRAW) {
+      await this.redoDeckDraw();
+      signalPush(store.moves, move);
+      return;
+    }
+
+    // this.moveAdd(move, false);
+  }
+
+  async moveUndo() {
+    if (!store.moves.value.length || this.animator.isAnimating) {
+      return;
+    }
+
+    const move = signalPop(store.moves);
+    signalPush(store.movesCache, move);
+
+    if (move.type === MoveType.BANK_MOVE) {
+      await this.undoBankMove(move);
+    }
+
+    if (move.type === MoveType.CELL_MOVE) {
+      await this.undoCellMove(move);
+    }
+
+    if (move.type === MoveType.DECK_DRAW) {
+      await this.undoDeckDraw(move);
+    }
+  }
+
+  async redoBankMove(move: BankMove) {
+    return this.animator.bankToCell(this.bank, move.to);
+  }
+
+  async redoCellMove(move: CellMove) {
+    return await this.animator.cellToCell(move.from, move.to, move.cards);
+  }
+
+  async redoDeckDraw() {
+    if (this.deck.length < 3) {
+      return;
+    }
+
+    return await this.drawFromDeck();
+  }
+
+  refreshBank() {
+    this.bank.children.forEach((card) => (card.eventMode = 'none'));
+
+    if (this.bank.children.length) {
+      this.bank.children.at(-1).eventMode = 'static';
+
+      if (!store.hand) {
+        // this.checkForFoundationCards();
+      }
+    }
+  }
+
+  resetDeck() {
+    this.deck = [];
+
+    Object.values(Rank).forEach((rank) => {
+      Object.values(Suit).forEach((suit) => {
+        this.deck.push(new Card(rank, suit));
+      });
+    });
+
+    this.deck = shuffleCards(this.deck);
+  }
+
+  resetDeckSprites() {
+    this.deckSprites.removeChildren();
+
+    this.deck.forEach((card, i) => {
+      const sprite = new Sprite(store.spritesheet.textures['back_red']);
+      sprite.width = store.layout.CARD_W;
+      sprite.height = store.layout.CARD_H;
+      sprite.x = 0;
+      sprite.y = 0;
+
+      const spriteWrap = new Container();
+      spriteWrap.x = 0;
+      spriteWrap.y = i === 0 ? 0 : 0 - i + 0.5 * i;
+
+      // The last card gets a drop shadow.
+      if (i === this.deck.length - 1) {
+        const shadow = new DropShadowFilter({
+          alpha: 0.05,
+          blur: 1,
+          offset: new Point(0, 1),
+          resolution: app.renderer.resolution
+        });
+        spriteWrap.filters = [shadow];
+      }
+
+      spriteWrap.addChild(sprite);
+
+      this.deckSprites.addChild(spriteWrap);
+    });
+  }
+
+  async tryRelease(obj: Card | Cell | Container) {
     if (!store.hand.count) {
       return;
     }
 
-    const card = store.hand.children[0];
-
-    // This checks what, if anything, the top center-ish area of the topmost
-    // card in the hand is intersecting.
-    const boundary = new EventBoundary(this.view.mainScene);
-    const point = card.getGlobalPosition();
-    const obj: Card | Cell | Container = boundary.hitTest(
-      point.x + store.layout.CARD_W / 2,
-      point.y + store.layout.CARD_H / 4
-    );
+    const card = store.hand.children.at(0);
 
     // If the target is the bank and the bank is the origin of this hand, allow
     // putting it back.
@@ -414,143 +586,34 @@ export default class Game {
       });
       return true;
     }
-  }
 
-  initBank() {
-    this.bank = new Container({ label: BANK_LABEL });
-    this.bank.x =
-      store.layout.DECK_POS.x + store.layout.CARD_W + store.layout.STACK_GAP;
-    this.bank.y = store.layout.DECK_POS.y;
+    // If we are dragging, then put the card back since placement wasn't successful.
+    if (this.input.currentState === InputState.DRAGGING) {
+      const originObj = this.getHandOriginObj();
 
-    this.bankBg = new Container();
-    this.bankBg.label = BANK_BG;
-    this.bankBg.x = this.bank.x;
-    this.bankBg.y = this.bank.y;
-
-    const bankBgGraphic = new Graphics();
-    const bankW = store.layout.VIEW_W - this.bank.x - store.layout.STACK_GAP;
-    const bankH = store.layout.CARD_H;
-
-    bankBgGraphic
-      .rect(0, 0, bankW, bankH)
-      .fill('#00000011')
-      .rect(0, 0, bankW, 2)
-      .fill('#00000033')
-      .rect(0, 2, 2, bankH)
-      .fill('#00000033')
-      .rect(bankW - 2, 2, 2, bankH - 4)
-      .fill('#ffffff10')
-      .rect(0, bankH - 2, bankW, 2)
-      .fill('#ffffff10');
-    this.bankBg.addChild(bankBgGraphic);
-
-    this.bank.eventMode = 'static';
-    this.bankBg.eventMode = 'static';
-    this.view.addChild(this.bankBg);
-    this.view.addChild(this.bank);
-
-    PubSub.subscribe(GameEvent.RESIZE, () => {
-      this.bank.x =
-        store.layout.DECK_POS.x + store.layout.CARD_W + store.layout.STACK_GAP;
-
-      this.bank.y = store.layout.DECK_POS.y;
-
-      this.bankBg[0].width =
-        store.layout.VIEW_W - this.bank.x - store.layout.STACK_GAP;
-
-      this.bankBg[0].height = store.layout.CARD_H;
-    });
-  }
-
-  initDomUi() {
-    // show the row of buttons
-    document.querySelector('.buttons').removeAttribute('hidden');
-
-    const undoButton = document.querySelector(
-      '[data-undo]'
-    ) as HTMLButtonElement;
-    const redoButton = document.querySelector(
-      '[data-redo]'
-    ) as HTMLButtonElement;
-    const resetButtons = Array.from(
-      document.querySelectorAll('.game-over button, .reset-button')
-    ) as HTMLButtonElement[];
-
-    // undo
-    undoButton.addEventListener('click', () => {
-      if (this.isAnimating) {
-        return;
+      if (originObj.label === BANK_LABEL) {
+        await this.animator.handToBank(this.bank);
+        return true;
       }
 
-      this.moveUndo();
-    });
-
-    // redo
-    redoButton.addEventListener('click', () => {
-      if (this.isAnimating) {
-        return;
+      if (originObj instanceof Cell) {
+        await this.animator.handToCell(originObj);
+        return true;
       }
-
-      this.moveRedo();
-    });
-
-    // reset
-    resetButtons.forEach((el) => {
-      el.addEventListener('click', () => {
-        // this.reset();
-      });
-    });
-
-    // Disable the undo and redo buttons as needed when the moves and movesCache
-    // arrays change.
-    store.moves.subscribe((moves) => {
-      undoButton.disabled = moves.length === 0;
-    });
-    store.movesCache.subscribe((movesCache) => {
-      redoButton.disabled = movesCache.length === 0;
-    });
+    }
   }
 
-  initFoundation() {
-    Object.values(Suit).forEach((suit, idx) => {
-      const tray = new AceTray(suit);
-      this.foundation.push(tray);
-    });
+  async trySelect(obj: Card | Cell | Container) {
+    if (obj instanceof Card) {
+      this.handleBoardClick(obj);
+    }
 
-    this.view.positionFoundationTrays(this.foundation);
-
-    // PubSub.subscribe(GameEvent.RESIZE, () => {
-    //   this.foundationBg.width = store.layout.ACE_TRAY_W;
-    //   this.foundationBg.height = store.layout.ACE_TRAY_H;
-    //   this.foundation.forEach(positionTray);
-    // });
-  }
-
-  listenForCardClick() {
-    PubSub.subscribe(
-      GameEvent.CARD_CLICK,
-      (msg: string, data: CardClickData) => {
-        if (store.hand.count) {
-          return;
-        }
-
-        // if (data.card.parent === this.bank) {
-        //   return;
-        // }
-
-        // I might end up getting rid of this if statement and letting this
-        // method handle all card clicks.
-        if (true) {
-          this.handleBoardClick(data.card);
-        }
-      }
-    );
-  }
-
-  listenForDeckClick() {
-    this.deckSprites.eventMode = 'static';
-    this.deckSprites.addEventListener('pointertap', async (event) => {
-      if (this.isAnimating || store.hand.count || this.deck.length < 3) {
+    if (obj.label === DECK_LABEL) {
+      if (
+        this.animator.isAnimating ||
+        store.hand.count ||
+        this.deck.length < 3
+      ) {
         return;
       }
 
@@ -560,161 +623,7 @@ export default class Game {
         type: MoveType.DECK_DRAW,
         cards
       });
-    });
-  }
-
-  listenForMainSceneClick() {
-    PubSub.subscribe(GameEvent.MAIN_SCENE_CLICK, async () => {
-      const result = await this.handleHandClick();
-
-      console.log('result', result);
-
-    });
-  }
-
-  async moveAdd(move: GameMove, resetCache = true) {
-    if (resetCache) {
-      store.movesCache.value = [];
     }
-
-    if (move.type === MoveType.BANK_MOVE) {
-      signalPush(store.moves, move);
-      await this.doCardMove(move);
-      this.refreshBank();
-      return;
-    }
-
-    if (move.type === MoveType.CELL_MOVE) {
-      signalPush(store.moves, move);
-      await this.doCardMove(move);
-      return;
-    }
-
-    if (move.type === MoveType.DECK_DRAW) {
-      signalPush(store.moves, move);
-      await this.drawFromDeck();
-      return;
-    }
-  }
-
-  async moveRedo() {
-    if (!store.movesCache.value.length || this.isAnimating) {
-      return;
-    }
-
-    const move = signalPop(store.movesCache);
-
-    if (move.type === MoveType.BANK_MOVE) {
-      await this.redoBankMove(move);
-      signalPush(store.moves, move);
-      return;
-    }
-
-    if (move.type === MoveType.CELL_MOVE) {
-      await this.redoCellMove(move);
-      signalPush(store.moves, move);
-      return;
-    }
-
-    if (move.type === MoveType.DECK_DRAW) {
-      await this.redoDeckDraw();
-      signalPush(store.moves, move);
-      return;
-    }
-
-    // this.moveAdd(move, false);
-  }
-
-  async moveUndo() {
-    if (!store.moves.value.length || this.isAnimating) {
-      return;
-    }
-
-    const move = signalPop(store.moves);
-    signalPush(store.movesCache, move);
-
-    if (move.type === MoveType.BANK_MOVE) {
-      await this.undoBankMove(move);
-    }
-
-    if (move.type === MoveType.CELL_MOVE) {
-      await this.undoCellMove(move);
-    }
-
-    if (move.type === MoveType.DECK_DRAW) {
-      await this.undoDeckDraw(move);
-    }
-  }
-
-  async redoBankMove(move: BankMove) {
-    return this.animator.bankToCell(this.bank, move.to);
-  }
-
-  async redoCellMove(move: CellMove) {
-    return await this.animator.cellToCell(move.from, move.to, move.cards);
-  }
-
-  async redoDeckDraw() {
-    if (this.deck.length < 3) {
-      return;
-    }
-
-    return await this.drawFromDeck();
-  }
-
-  refreshBank() {
-    this.bank.children.forEach((card) => (card.eventMode = 'none'));
-
-    if (this.bank.children.length) {
-      this.bank.children.at(-1).eventMode = 'static';
-
-      if (!store.hand) {
-        // this.checkForFoundationCards();
-      }
-    }
-  }
-
-  resetDeck() {
-    this.deck = [];
-
-    Object.values(Rank).forEach((rank) => {
-      Object.values(Suit).forEach((suit) => {
-        this.deck.push(new Card(rank, suit));
-      });
-    });
-
-    this.deck = shuffleCards(this.deck);
-  }
-
-  resetDeckSprites() {
-    this.deckSprites.removeChildren();
-
-    this.deck.forEach((card, i) => {
-      const sprite = new Sprite(store.spritesheet.textures['back_red']);
-      sprite.width = store.layout.CARD_W;
-      sprite.height = store.layout.CARD_H;
-      sprite.x = 0;
-      sprite.y = 0;
-
-      const spriteWrap = new Container();
-      spriteWrap.x = 0;
-      spriteWrap.y = i === 0 ? 0 : 0 - i + 0.5 * i;
-
-      // The last card gets a drop shadow.
-      if (i === this.deck.length - 1) {
-        const shadow = new DropShadowFilter({
-          alpha: 0.05,
-          blur: 1,
-          offset: new Point(0, 1),
-          resolution: app.renderer.resolution
-        });
-        spriteWrap.filters = [shadow];
-      }
-
-      spriteWrap.addChild(sprite);
-
-      this.deckSprites.addChild(spriteWrap);
-    });
   }
 
   async undoBankMove(move: BankMove) {
