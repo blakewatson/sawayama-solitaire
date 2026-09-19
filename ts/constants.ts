@@ -31,14 +31,10 @@ export const DECK_CELL_LABEL = 'DECK_CELL';
 export const DECK_LABEL = 'DECK';
 export const HAND_STACK_LABEL = 'HAND_STACK';
 
-// View IDs
-export const BANK_STACK_ID = 7;
-export const DECK_CELL_ID = 8;
-export const HAND_STACK_ID = 9;
-export const FOUNDATION_CLUBS_ID = 10;
-export const FOUNDATION_DIAMONDS_ID = 11;
-export const FOUNDATION_HEARTS_ID = 12;
-export const FOUNDATION_SPADES_ID = 13;
+export const FOUNDATION_CLUBS_LABEL = 'FOUNDATION_CLUBS';
+export const FOUNDATION_DIAMONDS_LABEL = 'FOUNDATION_DIAMONDS';
+export const FOUNDATION_HEARTS_LABEL = 'FOUNDATION_HEARTS';
+export const FOUNDATION_SPADES_LABEL = 'FOUNDATION_SPADES';
 
 // Colors
 export const COLOR_BG = '#505459';

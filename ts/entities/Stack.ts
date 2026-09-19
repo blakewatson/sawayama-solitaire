@@ -5,12 +5,10 @@ import Card from './Card';
 
 export default class Stack extends Container<Card> {
   graphics: Graphics = new Graphics();
-  id: number = 0;
 
-  constructor(id: number, label?: string) {
+  constructor(label?: string) {
     super();
-    this.id = id;
-    this.label = label || id.toString();
+    this.label = label;
   }
 
   get count() {
@@ -38,7 +36,7 @@ export default class Stack extends Container<Card> {
   }
 
   isSequentialFrom(card: Card) {
-    const idx = this.children.findIndex((c) => c.id === card.id);
+    const idx = this.children.findIndex((c) => c.label === card.label);
     return cardsAreSequential(this.children.slice(idx));
   }
 
@@ -51,7 +49,7 @@ export default class Stack extends Container<Card> {
   }
 
   sliceFromCard(card: Card) {
-    const idx = this.children.findIndex((c) => c.id === card.id);
+    const idx = this.children.findIndex((c) => c.label === card.label);
     const cards = this.children.slice(idx);
     return cards;
   }

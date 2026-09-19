@@ -1,8 +1,8 @@
-import { HAND_STACK_ID, HAND_STACK_LABEL } from '../constants';
+import { HAND_STACK_LABEL } from '../constants';
 import Stack from './Stack';
 
 export default class Hand extends Stack {
   constructor() {
-    super(HAND_STACK_ID, HAND_STACK_LABEL);
+    super(HAND_STACK_LABEL);
   }
 }

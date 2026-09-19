@@ -33,7 +33,7 @@ export default class AnimationController {
       const sourcePos = bank.getGlobalPosition();
 
       // Add cards to a temporary stack for moving
-      const mover = new Stack(99);
+      const mover = new Stack('tmp');
       this.view.addChild(mover);
       mover.x = sourcePos.x;
       mover.y = sourcePos.y;
@@ -84,7 +84,7 @@ export default class AnimationController {
       const sourcePos = fromCell.getGlobalPosition();
 
       // Add cards to a temporary stack for moving
-      const mover = new Stack(99);
+      const mover = new Stack('tmp');
       this.view.addChild(mover);
       mover.x = sourcePos.x;
       mover.y = sourcePos.y;
@@ -130,7 +130,7 @@ export default class AnimationController {
       const sourcePos = fromCell.getGlobalPosition();
 
       // Add cards to a temporary stack for moving
-      const mover = new Stack(99);
+      const mover = new Stack('tmp');
       this.view.addChild(mover);
       mover.x = sourcePos.x;
       mover.y = sourcePos.y;
@@ -250,6 +250,8 @@ export default class AnimationController {
         return reject('deckSprites not found');
       }
 
+      this.isAnimating = true;
+
       animate(card, {
         x: store.layout.CARD_OFFSET_HORIZONTAL * (bankLength - 1),
         y: 0,
@@ -259,6 +261,7 @@ export default class AnimationController {
           deckSprites.removeChildAt(deckSprites.children.length - 1);
         },
         onComplete: () => {
+          this.isAnimating = false;
           resolve(true);
         }
       });
@@ -273,7 +276,7 @@ export default class AnimationController {
       const handPos = store.hand.getGlobalPosition();
 
       // Add cards to a temporary stack for moving
-      const mover = new Stack(99);
+      const mover = new Stack('tmp');
       this.view.addChild(mover);
       mover.x = handPos.x;
       mover.y = handPos.y;
@@ -335,7 +338,7 @@ export default class AnimationController {
       const handPos = store.hand.getGlobalPosition();
 
       // Add cards to a temporary stack for moving
-      const mover = new Stack(99);
+      const mover = new Stack('tmp');
       this.view.addChild(mover);
       mover.x = handPos.x;
       mover.y = handPos.y;

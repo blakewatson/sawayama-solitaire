@@ -155,18 +155,18 @@ export const store: IStore = {
 };
 
 function formatCards(cards: Card[]) {
-  return cards.map((card) => card.id).join(', ');
+  return cards.map((card) => card.label).join(', ');
 }
 
 function formatMove(move: GameMove) {
   switch (move.type) {
     case MoveType.BANK_MOVE:
-      return `BANK_MOVE: ${BANK_LABEL || 'container'} -> cell ${move.to.id}`;
+      return `BANK_MOVE: ${BANK_LABEL || 'container'} -> cell ${move.to.label}`;
     case MoveType.DECK_DRAW:
       return `DECK_DRAW: ${formatCards(move.cards)}`;
     case MoveType.CELL_MOVE:
-      return `CELL_MOVE: cell ${move.from.id} -> cell ${
-        move.to.id
+      return `CELL_MOVE: cell ${move.from.label} -> cell ${
+        move.to.label
       } (${formatCards(move.cards)})`;
   }
 }

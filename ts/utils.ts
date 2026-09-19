@@ -1,6 +1,6 @@
 import { Signal } from '@preact/signals-core';
 import { Container } from 'pixi.js';
-import { BANK_LABEL, BOARD_CELL_LABEL, Rank, Suit } from './constants';
+import { BANK_BG, BANK_LABEL, BOARD_CELL_LABEL, Rank, Suit } from './constants';
 import AceTray from './entities/AceTray';
 import Card from './entities/Card';
 import Cell from './entities/Cell';
@@ -23,17 +23,24 @@ export const getCellFromCard = (card: Card): Cell | null => {
   return card.parent.parent as Cell;
 };
 
+export const getChildByLabel = (parent: Container, label: string) => {
+  return (
+    parent.children.find((child) => child.label && child.label === label) ||
+    null
+  );
+};
+
 export const getIndexOfSetInStack = (
   stack: Container<Card>,
   card: Card
 ): number | false => {
-  const idx = stack.children.findIndex((c) => c.id === card.id);
+  const idx = stack.children.findIndex((c) => c.label === card.label);
 
   if (idx === -1) {
     return false;
   }
 
-  if (stack.children.at(-1).id === card.id) {
+  if (stack.children.at(-1).label === card.label) {
     return idx;
   }
 
@@ -55,13 +62,29 @@ export const getIndexOfSetInStack = (
 export const getNumericalRank = (rank: Rank): number =>
   Object.values(Rank).findIndex((r) => r === rank);
 
+// Given a target object, returns the underlying cell if one exists.
+export const getTargetCell = (obj: Cell | Card | Container) => {
+  if (obj instanceof Card) {
+    return getCellFromCard(obj);
+  }
+
+  if (obj instanceof Cell) {
+    return obj;
+  }
+};
+
+export const isBankObj = (obj: Container) =>
+  obj.label === BANK_LABEL ||
+  obj.label === BANK_BG ||
+  obj.parent.label === BANK_LABEL;
+
 export const isCardOnBoard = (card: Card) => {
   if (card.parent.label === BANK_LABEL) {
     return false;
   }
 
   // If it's not in the bank, then it belongs to a stack which belongs to a cell
-  return card.parent.parent.label === BOARD_CELL_LABEL;
+  return card.parent.parent.label.startsWith(BOARD_CELL_LABEL);
 };
 
 export const isFirstCardAllowedOnSecond = (card1: Card, card2: Card) => {

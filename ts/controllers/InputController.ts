@@ -1,4 +1,4 @@
-import { Container, EventBoundary } from 'pixi.js';
+import { Container, ContainerChild, EventBoundary } from 'pixi.js';
 import { CARD_DRAG_THRESHOLD } from '../constants';
 import Card from '../entities/Card';
 import Cell from '../entities/Cell';
@@ -28,7 +28,7 @@ export default class InputController {
     this.init();
   }
 
-  getHandIntersection() {
+  getHandIntersection(): Container<ContainerChild> | null {
     if (!store.hand.count) {
       return null;
     }

@@ -14,7 +14,6 @@ export default class Card extends Container {
   cardSprite: Sprite | null = null;
   clickable = false;
   elevation = 1;
-  id = '';
   isHidden = false;
   isTracking = false;
 
@@ -50,7 +49,7 @@ export default class Card extends Container {
 
     this.rank = rank;
     this.suit = suit;
-    this.id = `${rank}_${suit}`;
+    this.label = `${rank}_${suit}`;
 
     this.eventMode = 'static';
 

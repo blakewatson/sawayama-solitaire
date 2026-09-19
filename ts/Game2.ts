@@ -11,9 +11,7 @@ import { app } from './app';
 import {
   BANK_BG,
   BANK_LABEL,
-  BANK_STACK_ID,
   BOARD_CELL_LABEL,
-  DECK_CELL_ID,
   DECK_CELL_LABEL,
   DECK_LABEL,
   Rank,
@@ -36,6 +34,9 @@ import {
 } from './store';
 import {
   getCellFromCard,
+  getChildByLabel,
+  getTargetCell,
+  isBankObj,
   isCardOnBoard,
   isFirstCardAllowedOnSecond,
   shuffleCards,
@@ -54,7 +55,7 @@ export default class Game {
   deckSprites: Container | null = null;
   foundation: AceTray[] = [];
   handOffset: [number, number] = [0, 0];
-  handOrigin = 0;
+  handOrigin = '';
   input: InputController | null = null;
   view: ViewController | null = null;
 
@@ -91,11 +92,13 @@ export default class Game {
     // start ticker
     Ticker.shared.add(this.update, this);
 
+    // Turn on the input controller.
+    this.input = new InputController(this.view, {
+      tryRelease: this.tryRelease.bind(this),
+      trySelect: this.trySelect.bind(this)
+    });
+
     this.dealCards().then(() => {
-      this.input = new InputController(this.view, {
-        tryRelease: this.tryRelease.bind(this),
-        trySelect: this.trySelect.bind(this)
-      });
       this.initDomUi();
     });
 
@@ -129,7 +132,7 @@ export default class Game {
 
       const y = store.layout.BOARD_Y;
 
-      const cell = new Cell(i, x, y, BOARD_CELL_LABEL);
+      const cell = new Cell(x, y, `${BOARD_CELL_LABEL}_${i}`);
 
       this.board.push(cell);
     }
@@ -164,7 +167,6 @@ export default class Game {
   displayDeck() {
     // add the free cell
     this.deckCell = new Cell(
-      DECK_CELL_ID,
       store.layout.DECK_POS.x,
       store.layout.DECK_POS.y,
       DECK_CELL_LABEL,
@@ -211,37 +213,6 @@ export default class Game {
     // if the deck is out of cards, activate the free cell
     if (!this.deck.length) {
       this.deckCell.eventMode = 'static';
-    }
-  }
-
-  handleBoardClick(card: Card) {
-    if (store.hand.count) {
-      return;
-    }
-
-    if (this.bank.children.at(-1)?.id === card.id) {
-      store.hand.reparentChild(card);
-      this.handOrigin = BANK_STACK_ID;
-      this.animator.toHand();
-      return;
-    }
-
-    const cell = getCellFromCard(card);
-
-    if (!cell) {
-      return;
-    }
-
-    // if empty, do nothing
-    if (!cell.count) {
-      return;
-    }
-
-    // If the selected stack is sequential, then add it to the hand.
-    if (cell.isSequentialFrom(card)) {
-      store.hand.reparentChild(...cell.sliceFromCard(card));
-      this.handOrigin = cell.id;
-      this.animator.toHand();
     }
   }
 
@@ -338,11 +309,11 @@ export default class Game {
   }
 
   getHandOriginObj() {
-    if (this.handOrigin === BANK_STACK_ID) {
+    if (this.handOrigin === BANK_LABEL) {
       return this.bank;
     }
 
-    return this.board.find((cell) => cell.id === this.handOrigin);
+    return this.board.find((cell) => cell.label === this.handOrigin);
   }
 
   async moveAdd(move: GameMove, resetCache = true) {
@@ -490,6 +461,46 @@ export default class Game {
     });
   }
 
+  selectCardsFromCard(card: Card) {
+    if (store.hand.count) {
+      return;
+    }
+
+    // if it’s from the bank, it’s gotta be the last card and not animating
+    if (getChildByLabel(this.bank, card.label)) {
+      if (this.animator.isAnimating) {
+        return;
+      }
+
+      if (this.bank.children.at(-1)?.label !== card.label) {
+        return;
+      }
+
+      store.hand.reparentChild(card);
+      this.handOrigin = BANK_LABEL;
+      this.animator.toHand();
+      return;
+    }
+
+    const cell = getCellFromCard(card);
+
+    if (!cell) {
+      return;
+    }
+
+    // if empty, do nothing
+    if (!cell.count) {
+      return;
+    }
+
+    // If the selected stack is sequential, then add it to the hand.
+    if (cell.isSequentialFrom(card)) {
+      store.hand.reparentChild(...cell.sliceFromCard(card));
+      this.handOrigin = cell.label;
+      this.animator.toHand();
+    }
+  }
+
   async tryRelease(obj: Card | Cell | Container) {
     if (!store.hand.count) {
       return;
@@ -499,85 +510,53 @@ export default class Game {
 
     // If the target is the bank and the bank is the origin of this hand, allow
     // putting it back.
-    if (
-      (obj.label === BANK_LABEL ||
-        obj.label === BANK_BG ||
-        obj.parent.label === BANK_LABEL) &&
-      this.handOrigin === BANK_STACK_ID &&
-      store.hand.count === 1
-    ) {
-      await this.animator.handToBank(this.bank);
-      return true;
-    }
+    if (isBankObj(obj)) {
+      if (this.handOrigin === BANK_LABEL && store.hand.count === 1) {
+        await this.animator.handToBank(this.bank);
+        return true;
+      }
 
-    // Otherwise, the bank is not a valid target for the hand.
-    if (obj.label === BANK_LABEL || obj.label === BANK_BG) {
+      // Otherwise, the bank is not a valid target for the hand.
       return;
     }
 
     // See what cell is being targeted.
-    let targetCell: Cell | null = null;
-    let targetCellId = -1;
-
-    if (obj instanceof Card) {
-      targetCell = getCellFromCard(obj) ?? null;
-      targetCellId = targetCell?.id ?? -1;
-    }
-
-    if (obj instanceof Cell) {
-      targetCell = obj;
-      targetCellId = targetCell.id;
-    }
+    const targetCell = getTargetCell(obj);
 
     // If the target is where the hand originally came from, allow the user to
     // put it back.
-    if (targetCellId === this.handOrigin) {
+    if (targetCell.label === this.handOrigin) {
       await this.animator.handToCell(targetCell);
       return true;
     }
 
     // If the target is the free cell, but the hand has multiple cards, disallow
     // hand placement.
-    if (targetCellId === DECK_CELL_ID && store.hand.count > 1) {
+    if (targetCell.label === DECK_CELL_LABEL && store.hand.count > 1) {
       return;
     }
 
     // If the target is an empty cell, place the hand.
-    if (targetCell && targetCell.count === 0) {
-      const fromCell =
-        this.handOrigin === BANK_STACK_ID
-          ? undefined
-          : this.handOrigin === DECK_CELL_ID
-          ? this.deckCell
-          : this.board.find((cell) => cell.id === this.handOrigin);
-
-      await this.moveAdd({
-        type:
-          this.handOrigin === BANK_STACK_ID
-            ? MoveType.BANK_MOVE
-            : MoveType.CELL_MOVE,
-        cards: [...store.hand.children],
-        from: fromCell,
-        to: targetCell
-      });
-      return true;
-    }
+    const isTargetCellEmpty = targetCell && targetCell.count === 0;
 
     // If the target is a non-empty cell and the top card in the hand can be
     // placed on it, then move the hand to that cell.
-    if (
+    const isValidBoardPlacement =
       obj instanceof Card &&
       isCardOnBoard(obj) &&
-      isFirstCardAllowedOnSecond(card, obj)
-    ) {
+      isFirstCardAllowedOnSecond(card, obj);
+
+    if (isTargetCellEmpty || isValidBoardPlacement) {
       const fromCell =
-        this.handOrigin === BANK_STACK_ID
+        this.handOrigin === BANK_LABEL
           ? undefined
-          : this.board.find((cell) => cell.id === this.handOrigin);
+          : this.handOrigin === DECK_CELL_LABEL
+          ? this.deckCell
+          : this.board.find((cell) => cell.label === this.handOrigin);
 
       await this.moveAdd({
         type:
-          this.handOrigin === BANK_STACK_ID
+          this.handOrigin === BANK_LABEL
             ? MoveType.BANK_MOVE
             : MoveType.CELL_MOVE,
         cards: [...store.hand.children],
@@ -605,7 +584,7 @@ export default class Game {
 
   async trySelect(obj: Card | Cell | Container) {
     if (obj instanceof Card) {
-      this.handleBoardClick(obj);
+      this.selectCardsFromCard(obj);
     }
 
     if (obj.label === DECK_LABEL) {

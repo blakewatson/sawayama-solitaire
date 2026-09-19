@@ -12,14 +12,12 @@ export interface CellClickData {
 export default class Cell extends Container {
   // card: Card | null = null;
   graphics: Graphics = new Graphics();
-  id: number = 0;
   stack: Stack | null = null;
 
   constructor(
-    id: number,
     x: number,
     y: number,
-    label?: string,
+    label: string,
     width?: number,
     height?: number
   ) {
@@ -28,8 +26,7 @@ export default class Cell extends Container {
     width = width || store.layout.CARD_W;
     height = height || store.layout.CARD_H;
 
-    this.id = id;
-    this.label = label || id.toString();
+    this.label = label;
     this.graphics.rect(0, 0, width, height);
     this.graphics.fill('#00000022');
     this.graphics.x = 0;
@@ -43,7 +40,7 @@ export default class Cell extends Container {
     this.height = height;
     this.addChild(this.graphics);
 
-    this.stack = new Stack(this.id, CELL_STACK_LABEL);
+    this.stack = new Stack(CELL_STACK_LABEL + '_' + this.label);
     this.stack.eventMode = 'static';
     this.addChild(this.stack);
   }
@@ -68,8 +65,8 @@ export default class Cell extends Container {
     this.stack.alignCards();
   }
 
-  getCard(id: string) {
-    return this.stack.children.find((c) => c.id === id);
+  getCard(label: string) {
+    return this.stack.children.find((c) => c.label === label);
   }
 
   isSequentialFrom(card: Card) {
