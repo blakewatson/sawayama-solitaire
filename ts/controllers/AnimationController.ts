@@ -3,6 +3,7 @@ import { Container, ContainerChild } from 'pixi.js';
 import { CARD_ANIM_SPEED_MS, DECK_LABEL } from '../constants';
 import Card from '../entities/Card';
 import Cell from '../entities/Cell';
+import FoundationCell from '../entities/FoundationCell';
 import Stack from '../entities/Stack';
 import { store } from '../store';
 import ViewController from './ViewController';
@@ -145,13 +146,17 @@ export default class AnimationController {
 
       this.isAnimating = true;
 
+      const y =
+        toCell instanceof FoundationCell
+          ? targetPos.y - card.y
+          : targetPos.y -
+            card.y +
+            store.layout.CARD_OFFSET_VERTICAL * toCell.count;
+
       // animate to position
       this.currentAnimation = animate(animProxy, {
         x: targetPos.x - card.x,
-        y:
-          targetPos.y -
-          card.y +
-          store.layout.CARD_OFFSET_VERTICAL * toCell.count,
+        y,
         duration,
         ease: 'inOutSine',
         onUpdate: (anim) => {
@@ -159,8 +164,13 @@ export default class AnimationController {
           mover.y = animProxy.y;
         },
         onComplete: () => {
-          toCell.addCards(...mover.children);
-          toCell.alignCards();
+          if (toCell instanceof FoundationCell) {
+            toCell.add(mover.children[0]);
+          } else {
+            toCell.addCards(...mover.children);
+            toCell.alignCards();
+          }
+
           this.isAnimating = false;
           this.currentAnimation = null;
           resolve(true);
@@ -262,6 +272,57 @@ export default class AnimationController {
         },
         onComplete: () => {
           this.isAnimating = false;
+          resolve(true);
+        }
+      });
+    });
+  }
+
+  handToFoundationCell(cell: FoundationCell) {
+    return new Promise((resolve, reject) => {
+      // get target position
+      const targetPos = cell.getGlobalPosition();
+      // get hand position
+      const handPos = store.hand.getGlobalPosition();
+
+      // Add cards to a temporary stack for moving
+      const mover = new Stack('tmp');
+      this.view.addChild(mover);
+      mover.x = handPos.x;
+      mover.y = handPos.y;
+      mover.scale = store.hand.scale;
+      mover.addChild(...store.hand.children);
+
+      const card = mover.children[0] as Card;
+
+      const animProxy = {
+        x: mover.x,
+        y: mover.y,
+        scale: 1.15
+      };
+
+      this.isAnimating = true;
+
+      // animate to position
+      this.currentAnimation = animate(animProxy, {
+        x: targetPos.x - card.x,
+        y: targetPos.y - card.y,
+        scale: 1,
+        duration: CARD_ANIM_SPEED_MS,
+        ease: 'inOutQuad',
+        onUpdate: (anim) => {
+          mover.x = animProxy.x;
+          mover.y = animProxy.y;
+          mover.scale = animProxy.scale;
+        },
+        onComplete: () => {
+          cell.add(card);
+
+          store.hand.scale = 1;
+          this.view.removeChild(mover);
+          mover.destroy();
+          this.isAnimating = false;
+          this.currentAnimation = null;
           resolve(true);
         }
       });

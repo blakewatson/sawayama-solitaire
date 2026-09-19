@@ -1,9 +1,9 @@
 import { Signal } from '@preact/signals-core';
 import { Container } from 'pixi.js';
 import { BANK_BG, BANK_LABEL, BOARD_CELL_LABEL, Rank, Suit } from './constants';
-import AceTray from './entities/AceTray';
 import Card from './entities/Card';
 import Cell from './entities/Cell';
+import FoundationCell from './entities/FoundationCell';
 
 export const cardsAreSequential = (cards: Card[]) => {
   return cards.every((card, i) => {
@@ -71,6 +71,10 @@ export const getTargetCell = (obj: Cell | Card | Container) => {
   if (obj instanceof Cell) {
     return obj;
   }
+
+  if (obj instanceof FoundationCell) {
+    return obj;
+  }
 };
 
 export const isBankObj = (obj: Container) =>
@@ -100,10 +104,10 @@ export const isFirstCardAllowedOnSecond = (card1: Card, card2: Card) => {
   return suitsMatch && rank2 - rank1 === 1;
 };
 
-export const isFoundationEmpty = (foundation: AceTray[]): boolean =>
+export const isFoundationEmpty = (foundation: FoundationCell[]): boolean =>
   foundation.every((tray) => tray.isEmpty());
 
-export const isFoundationFull = (foundation: AceTray[]): boolean =>
+export const isFoundationFull = (foundation: FoundationCell[]): boolean =>
   foundation.every((tray) => tray.isFull());
 
 export const isTopCardAnAce = (
@@ -143,7 +147,7 @@ export const rand = (min: number, max: number): number =>
 
 export const shouldAutoMoveTopCard = (
   stack: Container<Card>,
-  foundation: AceTray[],
+  foundation: FoundationCell[],
   card: Card | null = null
 ): boolean => {
   if (isTopCardAnAce(stack, card)) {

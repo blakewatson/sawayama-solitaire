@@ -1,5 +1,5 @@
 import { Application, Container, Graphics, Rectangle } from 'pixi.js';
-import AceTray from '../entities/AceTray';
+import FoundationCell from '../entities/FoundationCell';
 import { store } from '../store';
 
 export default class ViewController {
@@ -58,8 +58,8 @@ export default class ViewController {
     this.app.stage.addChild(this.mainScene);
   }
 
-  positionFoundationTrays(foundation: AceTray[]) {
-    const positionTray = (tray: AceTray, idx) => {
+  positionFoundationTrays(foundation: FoundationCell[]) {
+    const positionTray = (tray: FoundationCell, idx) => {
       if (this.isMobile) {
         tray.x =
           store.layout.VIEW_W -

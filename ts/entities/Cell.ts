@@ -18,6 +18,7 @@ export default class Cell extends Container {
     x: number,
     y: number,
     label: string,
+    useBackground = true,
     width?: number,
     height?: number
   ) {
@@ -27,18 +28,21 @@ export default class Cell extends Container {
     height = height || store.layout.CARD_H;
 
     this.label = label;
-    this.graphics.rect(0, 0, width, height);
-    this.graphics.fill('#00000022');
-    this.graphics.x = 0;
-    this.graphics.y = 0;
-    this.graphics.width = width;
-    this.graphics.height = height;
-    this.eventMode = 'static';
-    this.x = x;
-    this.y = y;
-    this.width = width;
-    this.height = height;
-    this.addChild(this.graphics);
+
+    if (useBackground) {
+      this.graphics.rect(0, 0, width, height);
+      this.graphics.fill('#00000022');
+      this.graphics.x = 0;
+      this.graphics.y = 0;
+      this.graphics.width = width;
+      this.graphics.height = height;
+      this.eventMode = 'static';
+      this.x = x;
+      this.y = y;
+      this.width = width;
+      this.height = height;
+      this.addChild(this.graphics);
+    }
 
     this.stack = new Stack(CELL_STACK_LABEL + '_' + this.label);
     this.stack.eventMode = 'static';

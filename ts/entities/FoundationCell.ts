@@ -1,18 +1,19 @@
 import { ColorMatrixFilter, Container, Sprite, Texture } from 'pixi.js';
-import { Rank, Suit } from '../constants';
+import { FOUNDATION_LABEL, Rank, Suit } from '../constants';
 import { store } from '../store';
 import { getNumericalRank } from '../utils';
 import Card from './Card';
+import Cell from './Cell';
 
 type Tray = {
   [key in Suit]: Container<Card | Sprite>;
 };
 
-export default class AceTray extends Container<Card | Sprite> {
+export default class FoundationCell extends Cell {
   public suit: Suit = Suit.Hearts;
 
-  public constructor(suit: Suit) {
-    super();
+  public constructor(suit: Suit, x: number, y: number) {
+    super(x, y, FOUNDATION_LABEL, false);
     this.suit = suit;
     this.eventMode = 'static';
 
@@ -31,14 +32,14 @@ export default class AceTray extends Container<Card | Sprite> {
 
     this.eventMode = 'static';
 
-    this.addChild(sprite);
+    this.addChildAt(sprite, 0);
   }
 
   public add(card: Card): boolean {
     // if the tray is empty (save the placeholder), allow the ace
-    if (this.children.length === 1) {
+    if (this.stack.children.length === 0) {
       if (card.rank === Rank.Ace) {
-        this.addChild(card);
+        this.addCard(card);
         card.x = 0;
         card.y = 0;
         card.eventMode = 'none';
@@ -47,46 +48,56 @@ export default class AceTray extends Container<Card | Sprite> {
       return false;
     }
 
-    const trayTopCard = this.children.at(-1) as Card;
+    const trayTopCard = this.stack.children.at(-1) as Card;
     const trayRank = getNumericalRank(trayTopCard.rank);
     const cardRank = getNumericalRank(card.rank);
 
     if (cardRank - trayRank === 1) {
-      this.addChild(card);
+      console.log('addCard');
+      this.addCard(card);
       card.x = 0;
       card.y = 0;
       card.eventMode = 'none';
       return true;
     }
 
+    console.log('cardRank', cardRank);
+    console.log('trayRank', trayRank);
     return false;
   }
 
+  alignCards() {
+    this.stack.children.forEach((card, i) => {
+      card.y = 0;
+      card.x = 0;
+    });
+  }
+
   public isEmpty() {
-    return this.children.length < 2;
+    return this.stack.children.length < 2;
   }
 
   public isFull() {
-    return this.children.length > 13;
+    return this.stack.children.length > 13;
   }
 
   public nextCardNeeded() {
-    if (this.children.length === 1) {
-      return `${this.suit}_${Rank.Ace}`;
+    if (this.stack.children.length === 0) {
+      return `${Rank.Ace}_${this.suit}`;
     }
 
-    if (this.children.length > 13) {
+    if (this.stack.children.length > 12) {
       return false;
     }
 
-    const topCard = this.children.at(-1) as Card;
+    const topCard = this.stack.children.at(-1) as Card;
     const currentRank = getNumericalRank(topCard.rank);
     const nextRank = Object.values(Rank)[currentRank + 1];
     return `${nextRank}_${this.suit}`;
   }
 
   public reset() {
-    this.children.forEach((card) => {
+    this.stack.children.forEach((card) => {
       if (card instanceof Sprite) {
         return;
       }
@@ -95,6 +106,6 @@ export default class AceTray extends Container<Card | Sprite> {
       card.destroy();
     });
 
-    this.children.splice(1);
+    this.stack.children.splice(1);
   }
 }

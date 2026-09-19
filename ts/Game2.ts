@@ -20,9 +20,9 @@ import {
 import AnimationController from './controllers/AnimationController';
 import InputController, { InputState } from './controllers/InputController';
 import ViewController from './controllers/ViewController';
-import AceTray from './entities/AceTray';
 import Card from './entities/Card';
 import Cell from './entities/Cell';
+import FoundationCell from './entities/FoundationCell';
 import Hand from './entities/Hand';
 import {
   BankMove,
@@ -53,7 +53,7 @@ export default class Game {
   deck: Card[] = [];
   deckCell: Cell | null = null;
   deckSprites: Container | null = null;
-  foundation: AceTray[] = [];
+  foundation: FoundationCell[] = [];
   handOffset: [number, number] = [0, 0];
   handOrigin = '';
   input: InputController | null = null;
@@ -105,16 +105,11 @@ export default class Game {
     // this.deck = [];
     // this.resetDeckSprites();
 
-    // const cardA = new Card(Rank.Three, Suit.Diamonds);
+    // const cardA = new Card(Rank.Ace, Suit.Diamonds);
     // this.board.at(0).addCard(cardA);
 
-    // const cardB = new Card(Rank.Two, Suit.Clubs);
+    // const cardB = new Card(Rank.Two, Suit.Diamonds);
     // this.board.at(1).addCard(cardB);
-
-    // this.input = new InputController(this.view, {
-    //   tryRelease: this.tryRelease.bind(this),
-    //   trySelect: this.trySelect.bind(this)
-    // });
 
     // this.initDomUi();
   }
@@ -170,6 +165,7 @@ export default class Game {
       store.layout.DECK_POS.x,
       store.layout.DECK_POS.y,
       DECK_CELL_LABEL,
+      true,
       store.layout.CARD_W,
       store.layout.CARD_H
     );
@@ -188,6 +184,10 @@ export default class Game {
   }
 
   doCardMove(move: CellMove | BankMove) {
+    if (move.to instanceof FoundationCell) {
+      return this.animator.handToFoundationCell(move.to);
+    }
+
     return this.animator.handToCell(move.to);
   }
 
@@ -301,7 +301,17 @@ export default class Game {
 
   initFoundation() {
     Object.values(Suit).forEach((suit, idx) => {
-      const tray = new AceTray(suit);
+      const x = this.view.isMobile
+        ? store.layout.VIEW_W -
+          (store.layout.STACK_GAP + store.layout.CARD_W) * (idx + 1)
+        : store.layout.STACK_GAP;
+
+      const y = this.view.isMobile
+        ? store.layout.STACK_GAP
+        : store.layout.STACK_GAP +
+          idx * (store.layout.CARD_H + store.layout.STACK_GAP);
+
+      const tray = new FoundationCell(suit, x, y);
       this.foundation.push(tray);
     });
 
@@ -339,6 +349,25 @@ export default class Game {
       await this.drawFromDeck();
       return;
     }
+  }
+
+  async moveHandToCell(targetCell: Cell) {
+    const fromCell =
+      this.handOrigin === BANK_LABEL
+        ? undefined
+        : this.handOrigin === DECK_CELL_LABEL
+        ? this.deckCell
+        : this.board.find((cell) => cell.label === this.handOrigin);
+
+    await this.moveAdd({
+      type:
+        this.handOrigin === BANK_LABEL
+          ? MoveType.BANK_MOVE
+          : MoveType.CELL_MOVE,
+      cards: [...store.hand.children],
+      from: fromCell,
+      to: targetCell
+    });
   }
 
   async moveRedo() {
@@ -461,6 +490,26 @@ export default class Game {
     });
   }
 
+  async returnHandToOrigin() {
+    const originObj = this.getHandOriginObj();
+
+    if (originObj.label === BANK_LABEL) {
+      await this.animator.handToBank(this.bank);
+      return true;
+    }
+
+    if (originObj instanceof Cell) {
+      await this.animator.handToCell(originObj);
+      return true;
+    }
+  }
+
+  async returnHandToOriginIfDragging() {
+    if (this.input.currentState === InputState.DRAGGING) {
+      this.returnHandToOrigin();
+    }
+  }
+
   selectCardsFromCard(card: Card) {
     if (store.hand.count) {
       return;
@@ -523,6 +572,20 @@ export default class Game {
     // See what cell is being targeted.
     const targetCell = getTargetCell(obj);
 
+    // If the hand is one card and it's allowed on the foundation, place it there.
+    if (targetCell instanceof FoundationCell) {
+      if (
+        store.hand.count === 1 &&
+        store.hand.children[0].label === targetCell.nextCardNeeded()
+      ) {
+        this.moveHandToCell(targetCell);
+        return;
+      }
+
+      // Otherwise, the placement was unsuccessful.
+      return this.returnHandToOriginIfDragging();
+    }
+
     // If the target is where the hand originally came from, allow the user to
     // put it back.
     if (targetCell.label === this.handOrigin) {
@@ -547,39 +610,11 @@ export default class Game {
       isFirstCardAllowedOnSecond(card, obj);
 
     if (isTargetCellEmpty || isValidBoardPlacement) {
-      const fromCell =
-        this.handOrigin === BANK_LABEL
-          ? undefined
-          : this.handOrigin === DECK_CELL_LABEL
-          ? this.deckCell
-          : this.board.find((cell) => cell.label === this.handOrigin);
-
-      await this.moveAdd({
-        type:
-          this.handOrigin === BANK_LABEL
-            ? MoveType.BANK_MOVE
-            : MoveType.CELL_MOVE,
-        cards: [...store.hand.children],
-        from: fromCell,
-        to: targetCell
-      });
-      return true;
+      return this.moveHandToCell(targetCell);
     }
 
     // If we are dragging, then put the card back since placement wasn't successful.
-    if (this.input.currentState === InputState.DRAGGING) {
-      const originObj = this.getHandOriginObj();
-
-      if (originObj.label === BANK_LABEL) {
-        await this.animator.handToBank(this.bank);
-        return true;
-      }
-
-      if (originObj instanceof Cell) {
-        await this.animator.handToCell(originObj);
-        return true;
-      }
-    }
+    this.returnHandToOriginIfDragging();
   }
 
   async trySelect(obj: Card | Cell | Container) {
@@ -610,6 +645,9 @@ export default class Game {
   }
 
   async undoCellMove(move: CellMove) {
+    if (move.to instanceof FoundationCell) {
+      move.cards[0].eventMode = 'static';
+    }
     return this.animator.cellToCell(move.to, move.from, move.cards);
   }
 
