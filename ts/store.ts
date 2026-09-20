@@ -49,17 +49,20 @@ interface GameState {
 interface IStore {
   hand: Hand | null;
   layout: {
-    CARD_W: number;
+    BANK_POS: { x: number; y: number };
+    BANK_W: number;
+    BOARD_POS: { x: number; y: number };
     CARD_H: number;
-    CARD_OFFSET_VERTICAL: number;
     CARD_OFFSET_HORIZONTAL: number;
-    STACK_GAP: number;
-    ACE_TRAY_W: number;
-    ACE_TRAY_H: number;
+    CARD_OFFSET_VERTICAL: number;
+    CARD_W: number;
     DECK_POS: { x: number; y: number };
-    BOARD_Y: number;
-    VIEW_W: number;
+    FOUNDATION_BG_POS: { x: number; y: number };
+    FOUNDATION_H: number;
+    FOUNDATION_W: number;
+    STACK_GAP: number;
     VIEW_H: number;
+    VIEW_W: number;
   };
   makeDesktopLayout: () => void;
   makeMobileLayout: () => void;
@@ -74,17 +77,21 @@ interface IStore {
 export const store: IStore = {
   hand: null,
   layout: {
-    CARD_W: 0,
+    BANK_POS: { x: 0, y: 0 },
+    BANK_W: 0,
+    BOARD_POS: { x: 0, y: 0 },
     CARD_H: 0,
-    CARD_OFFSET_VERTICAL: 0,
     CARD_OFFSET_HORIZONTAL: 0,
-    STACK_GAP: 0,
-    ACE_TRAY_W: 0,
-    ACE_TRAY_H: 0,
+    CARD_OFFSET_VERTICAL: 0,
+    CARD_W: 0,
     DECK_POS: { x: 0, y: 0 },
-    BOARD_Y: 0,
-    VIEW_W: 0,
-    VIEW_H: 0
+    // The position of the foundation background
+    FOUNDATION_BG_POS: { x: 0, y: 0 },
+    FOUNDATION_H: 0,
+    FOUNDATION_W: 0,
+    STACK_GAP: 0,
+    VIEW_H: 0,
+    VIEW_W: 0
   },
   mousePosition: [0, 0],
   moves: signal([]),
@@ -98,10 +105,16 @@ export const store: IStore = {
     store.layout.CARD_OFFSET_HORIZONTAL = store.layout.CARD_W / 4.25;
     store.layout.STACK_GAP = 18;
 
-    store.layout.ACE_TRAY_W = store.layout.CARD_W + store.layout.STACK_GAP * 2;
+    store.layout.FOUNDATION_W =
+      store.layout.CARD_W + store.layout.STACK_GAP * 2;
+
+    store.layout.FOUNDATION_BG_POS = {
+      x: 0,
+      y: 0
+    };
 
     store.layout.VIEW_W =
-      store.layout.ACE_TRAY_W +
+      store.layout.FOUNDATION_W +
       (store.layout.CARD_W + store.layout.STACK_GAP) * 7 +
       store.layout.STACK_GAP;
 
@@ -109,44 +122,78 @@ export const store: IStore = {
       (store.layout.STACK_GAP + store.layout.CARD_H) * 4 +
       store.layout.STACK_GAP * 3;
 
-    store.layout.ACE_TRAY_H = store.layout.VIEW_H;
+    store.layout.FOUNDATION_H = store.layout.VIEW_H;
 
     store.layout.DECK_POS = {
-      x: store.layout.ACE_TRAY_W + store.layout.STACK_GAP,
+      x: store.layout.FOUNDATION_W + store.layout.STACK_GAP,
       y: 35
     };
 
-    store.layout.BOARD_Y =
-      store.layout.STACK_GAP +
-      store.layout.STACK_GAP / 2 +
-      store.layout.CARD_H +
-      store.layout.STACK_GAP;
+    store.layout.BANK_POS = {
+      x: store.layout.DECK_POS.x + store.layout.CARD_W + store.layout.STACK_GAP,
+      y: store.layout.DECK_POS.y
+    };
+
+    store.layout.BANK_W =
+      store.layout.VIEW_W - store.layout.BANK_POS.x - store.layout.STACK_GAP;
+
+    store.layout.BOARD_POS = {
+      x: store.layout.DECK_POS.x,
+      y:
+        store.layout.STACK_GAP +
+        store.layout.STACK_GAP / 2 +
+        store.layout.CARD_H +
+        store.layout.STACK_GAP
+    };
   },
 
   makeMobileLayout() {
     store.layout.CARD_W = 50;
     store.layout.CARD_H = Math.round(store.layout.CARD_W * 1.33333333);
-    store.layout.CARD_OFFSET_VERTICAL = store.layout.CARD_H / 4.75;
-    store.layout.CARD_OFFSET_HORIZONTAL = store.layout.CARD_W / 4.25;
+    store.layout.CARD_OFFSET_VERTICAL = store.layout.CARD_H / 3;
+    store.layout.CARD_OFFSET_HORIZONTAL = store.layout.CARD_W / 2.75;
     store.layout.STACK_GAP = 10;
 
     store.layout.VIEW_W =
       (store.layout.CARD_W + store.layout.STACK_GAP) * 7 +
-      store.layout.STACK_GAP;
+      store.layout.STACK_GAP * 7;
 
-    store.layout.ACE_TRAY_W = store.layout.VIEW_W;
-    store.layout.ACE_TRAY_H = store.layout.CARD_H + store.layout.STACK_GAP * 2;
+    store.layout.FOUNDATION_BG_POS = {
+      x: 0,
+      y: store.layout.STACK_GAP
+    };
+
+    store.layout.FOUNDATION_W = store.layout.VIEW_W;
+    store.layout.FOUNDATION_H =
+      store.layout.CARD_H + store.layout.STACK_GAP * 2;
 
     store.layout.DECK_POS = {
       x: store.layout.STACK_GAP,
-      y: store.layout.ACE_TRAY_H + store.layout.STACK_GAP
+      y: store.layout.STACK_GAP + store.layout.FOUNDATION_BG_POS.y
     };
 
-    store.layout.BOARD_Y =
-      store.layout.DECK_POS.y + store.layout.CARD_H + store.layout.STACK_GAP;
+    store.layout.BANK_POS = {
+      x: store.layout.DECK_POS.x,
+      y:
+        store.layout.FOUNDATION_H +
+        store.layout.FOUNDATION_BG_POS.y +
+        store.layout.STACK_GAP
+    };
+
+    store.layout.BANK_W = store.layout.VIEW_W - store.layout.STACK_GAP * 2;
+
+    store.layout.BOARD_POS = {
+      x: store.layout.STACK_GAP * 4,
+      y:
+        store.layout.FOUNDATION_BG_POS.y +
+        store.layout.FOUNDATION_H +
+        store.layout.STACK_GAP +
+        store.layout.CARD_H +
+        store.layout.STACK_GAP
+    };
 
     store.layout.VIEW_H =
-      store.layout.ACE_TRAY_H +
+      store.layout.FOUNDATION_H +
       store.layout.STACK_GAP +
       store.layout.CARD_H +
       store.layout.STACK_GAP +

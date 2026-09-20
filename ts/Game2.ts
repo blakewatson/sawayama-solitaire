@@ -162,16 +162,16 @@ export default class Game {
 
   createBoard() {
     for (let i = 0; i < 7; i++) {
-      let x = store.layout.DECK_POS.x;
+      let x = store.layout.BOARD_POS.x;
 
       if (i > 0) {
         x =
-          store.layout.DECK_POS.x +
+          store.layout.BOARD_POS.x +
           store.layout.CARD_W * i +
           store.layout.STACK_GAP * i;
       }
 
-      const y = store.layout.BOARD_Y;
+      const y = store.layout.BOARD_POS.y;
 
       const cell = new Cell(x, y, `${BOARD_CELL_LABEL}_${i}`);
 
@@ -255,9 +255,13 @@ export default class Game {
         continue;
       }
       const card = this.deck.pop();
-      this.bank.addCards(card);
-      card.x = -store.layout.STACK_GAP - store.layout.CARD_W;
-      card.y = -this.deckSprites.children.length * 0.5;
+      this.bank.addChild(card);
+      const deckPos = this.deckCell.getGlobalPosition();
+      const deckLocal = this.bank.toLocal(deckPos);
+      card.x = store.layout.DECK_POS.x - store.layout.BANK_POS.x;
+      card.y = deckLocal.y - this.deckSprites.children.length * 0.5;
+      // card.x = -store.layout.STACK_GAP - store.layout.CARD_W;
+      // card.y = -this.deckSprites.children.length * 0.5;
       await this.animator.drawCardFromDeck(card, this.bank.count);
       card.eventMode = 'static';
     }
@@ -273,9 +277,8 @@ export default class Game {
   initBank() {
     this.bank = new Stack(BANK_LABEL);
     this.bank.alignCardsAfterAdding = false;
-    this.bank.x =
-      store.layout.DECK_POS.x + store.layout.CARD_W + store.layout.STACK_GAP;
-    this.bank.y = store.layout.DECK_POS.y;
+    this.bank.x = store.layout.BANK_POS.x;
+    this.bank.y = store.layout.BANK_POS.y;
 
     this.bankBg = new Container();
     this.bankBg.label = BANK_BG;
@@ -283,7 +286,7 @@ export default class Game {
     this.bankBg.y = this.bank.y;
 
     const bankBgGraphic = new Graphics();
-    const bankW = store.layout.VIEW_W - this.bank.x - store.layout.STACK_GAP;
+    const bankW = store.layout.BANK_W;
     const bankH = store.layout.CARD_H;
 
     bankBgGraphic
@@ -362,7 +365,7 @@ export default class Game {
         : store.layout.STACK_GAP;
 
       const y = this.view.isMobile
-        ? store.layout.STACK_GAP
+        ? store.layout.DECK_POS.y
         : store.layout.STACK_GAP +
           idx * (store.layout.CARD_H + store.layout.STACK_GAP);
 

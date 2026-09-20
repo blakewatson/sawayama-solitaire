@@ -23,7 +23,12 @@ export default class ViewController {
   initFoundation() {
     // create the dark background
     const bg = new Graphics();
-    bg.rect(0, 0, store.layout.ACE_TRAY_W, store.layout.ACE_TRAY_H);
+    bg.rect(
+      store.layout.FOUNDATION_BG_POS.x,
+      store.layout.FOUNDATION_BG_POS.y,
+      store.layout.FOUNDATION_W,
+      store.layout.FOUNDATION_H
+    );
     bg.fill('#00000033');
     this.foundationBg = bg;
     this.addChild(this.foundationBg);
@@ -64,7 +69,7 @@ export default class ViewController {
         tray.x =
           store.layout.VIEW_W -
           (store.layout.STACK_GAP + store.layout.CARD_W) * (idx + 1);
-        tray.y = store.layout.STACK_GAP;
+        tray.y = store.layout.DECK_POS.y;
         return;
       }
 

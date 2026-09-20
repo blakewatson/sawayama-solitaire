@@ -14,18 +14,24 @@ export let app: Application | null = null;
 init();
 
 async function init() {
+  let isMobile = !window.matchMedia('(min-width: 550px)').matches;
+
+  console.log('isMobile', isMobile);
+
   // load everything and call main
-  const texture = await Assets.load('images/deck.png');
+  const texture = isMobile
+    ? await Assets.load('images/deck-mobile.png')
+    : await Assets.load('images/deck.png');
   const sheet = new Spritesheet(texture, deckData);
   await sheet.parse();
   store.spritesheet = sheet;
 
   app = new Application();
 
-  if (window.matchMedia('(min-width: 550px)').matches) {
-    store.makeDesktopLayout();
-  } else {
+  if (isMobile) {
     store.makeMobileLayout();
+  } else {
+    store.makeDesktopLayout();
   }
 
   await app.init({
