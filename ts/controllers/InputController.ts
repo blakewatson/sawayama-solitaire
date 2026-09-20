@@ -77,9 +77,18 @@ export default class InputController {
     });
 
     this.view.mainScene.addEventListener('pointerdown', (event) => {
+      store.mousePosition = [
+        Math.round(event.globalX),
+        Math.round(event.globalY)
+      ];
+
+      this.lastPressedPosition = [event.globalX, event.globalY];
+
+      store.hand.position.set(...store.mousePosition);
+
       this.currentState = InputState.PRESSED;
 
-      this.lastPressedPosition = [...store.mousePosition];
+      this.view.app.render();
 
       if (store.hand.count > 0) {
         const obj = this.getHandIntersection();
@@ -102,6 +111,12 @@ export default class InputController {
     this.view.mainScene.addEventListener('pointerup', (event) => {
       if (this.currentState === InputState.PRESSED) {
         this.currentState = InputState.IDLE;
+
+        if (event.pointerType !== 'mouse') {
+          const obj = this.getHandIntersection();
+          this.actions.tryRelease(obj);
+        }
+
         return;
       }
 

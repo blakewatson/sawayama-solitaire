@@ -57,6 +57,10 @@ export default class Cell extends Container {
     return this.y + this.stack.nextCardPosY;
   }
 
+  get topCard() {
+    return this.stack.topCard;
+  }
+
   addCard(card: Card) {
     this.stack.addCards(card);
   }

@@ -26,7 +26,7 @@ export default class AnimationController {
     return this.view.isMobile;
   }
 
-  bankToCell(bank: Container<Card>, toCell: Cell, duration = 200) {
+  bankToCell(bank: Stack, toCell: Cell, duration = 200) {
     return new Promise((resolve, _) => {
       // get target position
       const targetPos = toCell.getGlobalPosition();
@@ -38,7 +38,7 @@ export default class AnimationController {
       this.view.addChild(mover);
       mover.x = sourcePos.x;
       mover.y = sourcePos.y;
-      mover.addChild(bank.children.at(-1));
+      mover.addChild(bank.topCard);
 
       const card = mover.children[0] as Card;
 
@@ -74,12 +74,12 @@ export default class AnimationController {
     });
   }
 
-  cellToBank(bank: Container<Card>, fromCell: Cell, duration = 200) {
+  cellToBank(bank: Stack, fromCell: Cell, duration = 200) {
     return new Promise((resolve, _) => {
       // get target position
       const targetPos = bank.getGlobalPosition();
       // offset by number of cards in the bank
-      targetPos.x += store.layout.CARD_OFFSET_HORIZONTAL * bank.children.length;
+      targetPos.x += store.layout.CARD_OFFSET_HORIZONTAL * bank.count;
 
       // get source position
       const sourcePos = fromCell.getGlobalPosition();
@@ -111,10 +111,9 @@ export default class AnimationController {
           mover.y = animProxy.y;
         },
         onComplete: () => {
-          bank.addChild(card);
+          bank.addCards(card);
           card.y = 0;
-          card.x =
-            store.layout.CARD_OFFSET_HORIZONTAL * (bank.children.length - 1);
+          card.x = store.layout.CARD_OFFSET_HORIZONTAL * (bank.count - 1);
           this.isAnimating = false;
           this.currentAnimation = null;
           resolve(true);
@@ -278,58 +277,7 @@ export default class AnimationController {
     });
   }
 
-  handToFoundationCell(cell: FoundationCell) {
-    return new Promise((resolve, reject) => {
-      // get target position
-      const targetPos = cell.getGlobalPosition();
-      // get hand position
-      const handPos = store.hand.getGlobalPosition();
-
-      // Add cards to a temporary stack for moving
-      const mover = new Stack('tmp');
-      this.view.addChild(mover);
-      mover.x = handPos.x;
-      mover.y = handPos.y;
-      mover.scale = store.hand.scale;
-      mover.addChild(...store.hand.children);
-
-      const card = mover.children[0] as Card;
-
-      const animProxy = {
-        x: mover.x,
-        y: mover.y,
-        scale: 1.15
-      };
-
-      this.isAnimating = true;
-
-      // animate to position
-      this.currentAnimation = animate(animProxy, {
-        x: targetPos.x - card.x,
-        y: targetPos.y - card.y,
-        scale: 1,
-        duration: CARD_ANIM_SPEED_MS,
-        ease: 'inOutQuad',
-        onUpdate: (anim) => {
-          mover.x = animProxy.x;
-          mover.y = animProxy.y;
-          mover.scale = animProxy.scale;
-        },
-        onComplete: () => {
-          cell.add(card);
-
-          store.hand.scale = 1;
-          this.view.removeChild(mover);
-          mover.destroy();
-          this.isAnimating = false;
-          this.currentAnimation = null;
-          resolve(true);
-        }
-      });
-    });
-  }
-
-  handToBank(bank: Container<Card>, duration = 75) {
+  handToBank(bank: Stack, duration = 75) {
     return new Promise((resolve, reject) => {
       // get target position
       const targetPos = bank.getGlobalPosition();
@@ -359,7 +307,7 @@ export default class AnimationController {
         x:
           targetPos.x -
           card.x +
-          store.layout.CARD_OFFSET_HORIZONTAL * bank.children.length,
+          store.layout.CARD_OFFSET_HORIZONTAL * bank.count,
         y: targetPos.y - card.y,
         scale: 1,
         duration,
@@ -370,9 +318,8 @@ export default class AnimationController {
           mover.scale = animProxy.scale;
         },
         onComplete: () => {
-          bank.addChild(card);
-          card.x =
-            store.layout.CARD_OFFSET_HORIZONTAL * (bank.children.length - 1);
+          bank.addCards(card);
+          card.x = store.layout.CARD_OFFSET_HORIZONTAL * (bank.count - 1);
           card.y = 0;
 
           store.hand.scale = 1;
@@ -445,26 +392,78 @@ export default class AnimationController {
     });
   }
 
+  handToFoundationCell(cell: FoundationCell) {
+    return new Promise((resolve, reject) => {
+      // get target position
+      const targetPos = cell.getGlobalPosition();
+      // get hand position
+      const handPos = store.hand.getGlobalPosition();
+
+      // Add cards to a temporary stack for moving
+      const mover = new Stack('tmp');
+      this.view.addChild(mover);
+      mover.x = handPos.x;
+      mover.y = handPos.y;
+      mover.scale = store.hand.scale;
+      mover.addChild(...store.hand.children);
+
+      const card = mover.children[0] as Card;
+
+      const animProxy = {
+        x: mover.x,
+        y: mover.y,
+        scale: 1.15
+      };
+
+      this.isAnimating = true;
+
+      // animate to position
+      this.currentAnimation = animate(animProxy, {
+        x: targetPos.x - card.x,
+        y: targetPos.y - card.y,
+        scale: 1,
+        duration: CARD_ANIM_SPEED_MS,
+        ease: 'inOutQuad',
+        onUpdate: (anim) => {
+          mover.x = animProxy.x;
+          mover.y = animProxy.y;
+          mover.scale = animProxy.scale;
+        },
+        onComplete: () => {
+          cell.add(card);
+
+          store.hand.scale = 1;
+          this.view.removeChild(mover);
+          mover.destroy();
+          this.isAnimating = false;
+          this.currentAnimation = null;
+          resolve(true);
+        }
+      });
+    });
+  }
+
   toHand() {
-    // if (this.isMobile) {
-    //   return;
-    // }
+    return new Promise((resolve, _) => {
+      console.log('handPos', store.hand.x, store.hand.y);
 
-    const scaleObj = { scale: 1 };
+      const scaleObj = { scale: 1 };
 
-    this.isAnimating = true;
+      this.isAnimating = true;
 
-    this.currentAnimation = animate(scaleObj, {
-      scale: 1.15,
-      ease: 'outBack(4)',
-      duration: 200,
-      onUpdate: (anim) => {
-        store.hand.scale = scaleObj.scale;
-      },
-      onComplete: () => {
-        this.isAnimating = false;
-        this.currentAnimation = null;
-      }
+      this.currentAnimation = animate(scaleObj, {
+        scale: 1.15,
+        ease: 'outBack(4)',
+        duration: 200,
+        onUpdate: (anim) => {
+          store.hand.scale = scaleObj.scale;
+        },
+        onComplete: () => {
+          this.isAnimating = false;
+          this.currentAnimation = null;
+          resolve(true);
+        }
+      });
     });
   }
 

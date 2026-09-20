@@ -4,6 +4,7 @@ import { BANK_BG, BANK_LABEL, BOARD_CELL_LABEL, Rank, Suit } from './constants';
 import Card from './entities/Card';
 import Cell from './entities/Cell';
 import FoundationCell from './entities/FoundationCell';
+import Stack from './entities/Stack';
 
 export const cardsAreSequential = (cards: Card[]) => {
   return cards.every((card, i) => {
@@ -29,6 +30,9 @@ export const getChildByLabel = (parent: Container, label: string) => {
     null
   );
 };
+
+export const getFoundationCell = (suit: Suit, foundation: FoundationCell[]) =>
+  foundation.find((cell) => cell.suit === suit);
 
 export const getIndexOfSetInStack = (
   stack: Container<Card>,
@@ -75,6 +79,8 @@ export const getTargetCell = (obj: Cell | Card | Container) => {
   if (obj instanceof FoundationCell) {
     return obj;
   }
+
+  return null;
 };
 
 export const isBankObj = (obj: Container) =>
@@ -110,26 +116,12 @@ export const isFoundationEmpty = (foundation: FoundationCell[]): boolean =>
 export const isFoundationFull = (foundation: FoundationCell[]): boolean =>
   foundation.every((tray) => tray.isFull());
 
-export const isTopCardAnAce = (
-  stack: Container<Card>,
-  card: Card = null
-): boolean => {
-  if (card) {
-    return card.rank === Rank.Ace;
-  }
-
-  return stack.children.at(-1)?.rank === Rank.Ace;
+export const isTopCardAnAce = (stack: Stack): boolean => {
+  return stack.topCard?.rank === Rank.Ace;
 };
 
-export const isTopCardATwo = (
-  stack: Container<Card>,
-  card: Card = null
-): boolean => {
-  if (card) {
-    return card.rank === Rank.Two;
-  }
-
-  return stack.children.at(-1)?.rank === Rank.Two;
+export const isTopCardATwo = (stack: Stack): boolean => {
+  return stack.topCard?.rank === Rank.Two;
 };
 
 export const signalPop = (arrSignal: Signal<Array<any>>) => {
@@ -146,19 +138,24 @@ export const rand = (min: number, max: number): number =>
   Math.random() * (max - min) + min;
 
 export const shouldAutoMoveTopCard = (
-  stack: Container<Card>,
-  foundation: FoundationCell[],
-  card: Card | null = null
+  cellOrStack: Cell | Stack,
+  foundation: FoundationCell[]
 ): boolean => {
-  if (isTopCardAnAce(stack, card)) {
+  const stack = cellOrStack instanceof Cell ? cellOrStack.stack : cellOrStack;
+
+  if (!stack.topCard) {
+    return false;
+  }
+
+  if (isTopCardAnAce(stack)) {
     return true;
   }
 
-  if (isTopCardATwo(stack, card)) {
-    const topCard = card || stack.children.at(-1);
-    const tray = foundation.find((t) => t.suit === topCard.suit);
-    const trayCard = tray.children.at(-1);
-    return trayCard instanceof Card && trayCard.rank === Rank.Ace;
+  if (isTopCardATwo(stack)) {
+    const topCard = stack.children.at(-1);
+    const cell = foundation.find((t) => t.suit === topCard.suit);
+    const cellCard = cell.topCard;
+    return cellCard instanceof Card && cellCard.rank === Rank.Ace;
   }
 };
 

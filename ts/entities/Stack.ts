@@ -24,6 +24,14 @@ export default class Stack extends Container<Card> {
     return this.count * store.layout.CARD_OFFSET_VERTICAL;
   }
 
+  get topCard() {
+    if (!this.children.length) {
+      return null;
+    }
+
+    return this.children.at(-1);
+  }
+
   addCards(...cards: Card[]) {
     this.addChild(...cards);
 
