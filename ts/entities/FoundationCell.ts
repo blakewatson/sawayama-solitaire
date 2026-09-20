@@ -33,6 +33,8 @@ export default class FoundationCell extends Cell {
     this.eventMode = 'static';
 
     this.addChildAt(sprite, 0);
+
+    this.stack.alignCardsAfterAdding = false;
   }
 
   public add(card: Card): boolean {

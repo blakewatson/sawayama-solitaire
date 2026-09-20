@@ -4,6 +4,7 @@ import { cardsAreSequential, stackIsSequential } from '../utils';
 import Card from './Card';
 
 export default class Stack extends Container<Card> {
+  alignCardsAfterAdding = true;
   graphics: Graphics = new Graphics();
 
   constructor(label?: string) {
@@ -25,7 +26,10 @@ export default class Stack extends Container<Card> {
 
   addCards(...cards: Card[]) {
     this.addChild(...cards);
-    this.alignCards();
+
+    if (this.alignCardsAfterAdding) {
+      this.alignCards();
+    }
   }
 
   alignCards() {
