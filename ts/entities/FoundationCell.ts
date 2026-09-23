@@ -68,7 +68,7 @@ export default class FoundationCell extends Cell {
     return false;
   }
 
-  alignCards() {
+  alignCardsVertically() {
     this.stack.children.forEach((card, i) => {
       card.y = 0;
       card.x = 0;

@@ -1,19 +1,10 @@
-import { DropShadowFilter } from 'pixi-filters';
+import { Application, Container, Graphics, Ticker } from 'pixi.js';
 import {
-  Application,
-  Container,
-  Graphics,
-  Point,
-  Sprite,
-  Ticker
-} from 'pixi.js';
-import { app } from './app';
-import {
-  BANK_BG,
   BANK_LABEL,
   BOARD_CELL_LABEL,
   DECK_CELL_LABEL,
   DECK_LABEL,
+  FOUNDATION_LABEL,
   Rank,
   Suit
 } from './constants';
@@ -26,17 +17,20 @@ import FoundationCell from './entities/FoundationCell';
 import Hand from './entities/Hand';
 import Stack from './entities/Stack';
 import {
+  BankLocationRef,
   BankMove,
   CellMove,
   DeckDraw,
   GameMove,
+  GameState,
+  LocationRef,
   MoveType,
+  NonBankLocationRef,
   store
 } from './store';
 import {
   getCellFromCard,
   getChildByLabel,
-  getFoundationCell,
   getTargetCell,
   isBankObj,
   isCardOnBoard,
@@ -53,6 +47,7 @@ export default class Game {
   bank: Stack | null = null;
   bankBg: Container<Graphics> | null = null;
   board: Cell[] = [];
+  cardsById: Map<string, Card> | null = null;
   deck: Card[] = [];
   deckCell: Cell | null = null;
   deckSprites: Container | null = null;
@@ -79,14 +74,20 @@ export default class Game {
 
     // set up the foundation (aces)
     this.initFoundation();
-    // create the deck array in the store
-    this.resetDeck();
-    // create deck stack on the canvas
-    this.displayDeck();
+
     // create the seven stacks
     this.createBoard();
+
     // create the card bank
-    this.initBank();
+    this.bank = this.view.initBank();
+
+    // set up global card map
+    this.buildCards();
+
+    // set up the deck and deck cell
+    this.deckCell = this.view.initDeckCell();
+    this.deckSprites = this.view.initDeckSprites();
+
     // init the hand stack
     store.hand = new Hand();
     store.hand.eventMode = 'none';
@@ -95,15 +96,18 @@ export default class Game {
     // start ticker
     Ticker.shared.add(this.update, this);
 
-    // Turn on the input controller.
-    this.input = new InputController(this.view, {
-      tryRelease: this.tryRelease.bind(this),
-      trySelect: this.trySelect.bind(this)
-    });
+    // start a new game or saved one
+    this.initGameState().finally(() => {
+      // Turn on the input controller.
+      this.input = new InputController(this.view, {
+        redo: this.tryRedo.bind(this),
+        reset: this.tryReset.bind(this),
+        tryRelease: this.tryRelease.bind(this),
+        trySelect: this.trySelect.bind(this),
+        undo: this.tryUndo.bind(this)
+      });
 
-    this.dealCards().then(async () => {
-      await this.checkForFoundationCards();
-      this.initDomUi();
+      this.input.initDomUi();
     });
 
     // this.deck = [];
@@ -117,7 +121,18 @@ export default class Game {
 
     // this.checkForFoundationCards();
 
-    // this.initDomUi();
+    // this.view.initDomUi();
+  }
+
+  buildCards() {
+    this.cardsById = new Map();
+
+    Object.values(Rank).forEach((rank) => {
+      Object.values(Suit).forEach((suit) => {
+        const card = new Card(rank, suit);
+        this.cardsById.set(card.label, card);
+      });
+    });
   }
 
   /**
@@ -130,7 +145,9 @@ export default class Game {
       const card = this.bank.topCard;
       this.moveAddAuto({
         type: MoveType.BANK_MOVE,
-        to: getFoundationCell(card.suit, this.foundation)
+        cardIds: [card.label],
+        from: { kind: 'bank' },
+        to: { kind: 'foundation', suit: card.suit }
       });
     }
 
@@ -139,9 +156,9 @@ export default class Game {
       const card = this.deckCell.topCard;
       await this.moveAddAuto({
         type: MoveType.CELL_MOVE,
-        cards: [card],
-        from: this.deckCell,
-        to: getFoundationCell(card.suit, this.foundation)
+        cardIds: [card.label],
+        from: { kind: 'deckCell' },
+        to: { kind: 'foundation', suit: card.suit }
       });
     }
 
@@ -151,9 +168,9 @@ export default class Game {
         const card = cell.topCard;
         await this.moveAddAuto({
           type: MoveType.CELL_MOVE,
-          cards: [card],
-          from: cell,
-          to: getFoundationCell(card.suit, this.foundation)
+          cardIds: [card.label],
+          from: this.getLocationRef(cell),
+          to: { kind: 'foundation', suit: card.suit }
         });
         break;
       }
@@ -205,44 +222,24 @@ export default class Game {
     return this.animator.dealCard(card, cell);
   }
 
-  displayDeck() {
-    // add the free cell
-    this.deckCell = new Cell(
-      store.layout.DECK_POS.x,
-      store.layout.DECK_POS.y,
-      DECK_CELL_LABEL,
-      true,
-      store.layout.CARD_W,
-      store.layout.CARD_H
-    );
-    this.view.addChild(this.deckCell);
-
-    // create the deck sprites
-    this.deckSprites = new Container();
-    this.deckSprites.label = DECK_LABEL;
-    this.deckSprites.x = store.layout.DECK_POS.x;
-    this.deckSprites.y = store.layout.DECK_POS.y;
-    this.deckSprites.eventMode = 'static';
-
-    this.resetDeckSprites();
-
-    this.view.addChild(this.deckSprites);
-  }
-
   doCardAutoMove(move: CellMove | BankMove) {
     if (move.type === MoveType.BANK_MOVE) {
-      return this.animator.bankToCell(this.bank, move.to);
+      const target = this.getLocation(move.to);
+      return this.animator.bankToCell(this.bank, target);
     }
 
-    return this.animator.cellToCell(move.from, move.to, move.cards);
+    const fromLocation = this.getLocation(move.from);
+    const toLocation = this.getLocation(move.to);
+    const cards = this.getCards(move.cardIds);
+    return this.animator.cellToCell(fromLocation, toLocation, cards);
   }
 
   doCardMove(move: CellMove | BankMove) {
-    if (move.to instanceof FoundationCell) {
-      return this.animator.handToFoundationCell(move.to);
+    if (move.to.kind === 'foundation') {
+      return this.animator.handToFoundationCell(this.getLocation(move.to));
     }
 
-    return this.animator.handToCell(move.to);
+    return this.animator.handToCell(this.getLocation(move.to));
   }
 
   async drawFromDeck() {
@@ -260,8 +257,6 @@ export default class Game {
       const deckLocal = this.bank.toLocal(deckPos);
       card.x = store.layout.DECK_POS.x - store.layout.BANK_POS.x;
       card.y = deckLocal.y - this.deckSprites.children.length * 0.5;
-      // card.x = -store.layout.STACK_GAP - store.layout.CARD_W;
-      // card.y = -this.deckSprites.children.length * 0.5;
       await this.animator.drawCardFromDeck(card, this.bank.count);
       card.eventMode = 'static';
     }
@@ -274,106 +269,147 @@ export default class Game {
     }
   }
 
-  initBank() {
-    this.bank = new Stack(BANK_LABEL);
-    this.bank.alignCardsAfterAdding = false;
-    this.bank.x = store.layout.BANK_POS.x;
-    this.bank.y = store.layout.BANK_POS.y;
+  getCardById(id: string) {
+    const card = this.cardsById.get(id);
 
-    this.bankBg = new Container();
-    this.bankBg.label = BANK_BG;
-    this.bankBg.x = this.bank.x;
-    this.bankBg.y = this.bank.y;
+    if (!card) {
+      throw new Error(`Could not find card with ID ${id}.`);
+    }
 
-    const bankBgGraphic = new Graphics();
-    const bankW = store.layout.BANK_W;
-    const bankH = store.layout.CARD_H;
-
-    bankBgGraphic
-      .rect(0, 0, bankW, bankH)
-      .fill('#00000011')
-      .rect(0, 0, bankW, 2)
-      .fill('#00000033')
-      .rect(0, 2, 2, bankH)
-      .fill('#00000033')
-      .rect(bankW - 2, 2, 2, bankH - 4)
-      .fill('#ffffff10')
-      .rect(0, bankH - 2, bankW, 2)
-      .fill('#ffffff10');
-    this.bankBg.addChild(bankBgGraphic);
-
-    this.bank.eventMode = 'static';
-    this.bankBg.eventMode = 'static';
-    this.view.addChild(this.bankBg);
-    this.view.addChild(this.bank);
+    return card;
   }
 
-  initDomUi() {
-    // show the row of buttons
-    document.querySelector('.buttons').removeAttribute('hidden');
+  getCards(ids: string[]): Card[] {
+    return ids.map((id) => this.getCardById(id));
+  }
 
-    const undoButton = document.querySelector(
-      '[data-undo]'
-    ) as HTMLButtonElement;
-    const redoButton = document.querySelector(
-      '[data-redo]'
-    ) as HTMLButtonElement;
-    const resetButtons = Array.from(
-      document.querySelectorAll('.game-over button, .reset-button')
-    ) as HTMLButtonElement[];
+  getLocation(ref: BankLocationRef): Stack;
+  getLocation(ref: { kind: 'foundation'; suit: Suit }): FoundationCell;
+  getLocation(ref: NonBankLocationRef): Cell;
+  getLocation(ref: LocationRef): Cell | Stack {
+    switch (ref.kind) {
+      case 'board':
+        return this.board[ref.index];
 
-    // undo
-    undoButton.addEventListener('click', () => {
-      if (this.animator.isAnimating) {
-        return;
-      }
+      case 'foundation':
+        return this.foundation.find((cell) => cell.suit === ref.suit)!;
 
-      this.moveUndo();
+      case 'deckCell':
+        return this.deckCell;
+
+      case 'bank':
+        return this.bank;
+    }
+  }
+
+  getLocationRef(location: Stack): BankLocationRef;
+  getLocationRef(location: Cell): NonBankLocationRef;
+  getLocationRef(location: Cell | Stack): LocationRef {
+    if (location.label.startsWith(BOARD_CELL_LABEL)) {
+      return {
+        kind: 'board',
+        index: this.board.findIndex((b) => b.label === location.label)
+      };
+    }
+
+    if (location.label === FOUNDATION_LABEL) {
+      return { kind: 'foundation', suit: (location as FoundationCell).suit };
+    }
+
+    if (location.label === DECK_CELL_LABEL) {
+      return { kind: 'deckCell' };
+    }
+
+    if (location.label === BANK_LABEL && location instanceof Stack) {
+      return { kind: 'bank' };
+    }
+  }
+
+  initBankState(bank: string[]) {
+    bank.forEach((cardId) => {
+      const card = this.getCardById(cardId);
+      this.bank.addCards(card);
     });
+    this.bank.alignCardsHorizontally();
+    this.refreshBank();
+  }
 
-    // redo
-    redoButton.addEventListener('click', () => {
-      if (this.animator.isAnimating) {
-        return;
-      }
-
-      this.moveRedo();
-    });
-
-    // reset
-    resetButtons.forEach((el) => {
-      el.addEventListener('click', () => {
-        // this.reset();
+  initBoardState(board: string[][]) {
+    board.forEach((cellCards, index) => {
+      const cell = this.board[index];
+      cellCards.forEach((cardId) => {
+        const card = this.getCardById(cardId);
+        cell.addCards(card);
       });
-    });
-
-    // Disable the undo and redo buttons as needed when the moves and movesCache
-    // arrays change.
-    store.moves.subscribe((moves) => {
-      undoButton.disabled = moves.length === 0;
-    });
-    store.movesCache.subscribe((movesCache) => {
-      redoButton.disabled = movesCache.length === 0;
+      cell.alignCardsVertically();
     });
   }
 
   initFoundation() {
-    Object.values(Suit).forEach((suit, idx) => {
-      const x = this.view.isMobile
-        ? store.layout.VIEW_W -
-          (store.layout.STACK_GAP + store.layout.CARD_W) * (idx + 1)
-        : store.layout.STACK_GAP;
-
-      const y = this.view.isMobile
-        ? store.layout.DECK_POS.y
-        : store.layout.STACK_GAP +
-          idx * (store.layout.CARD_H + store.layout.STACK_GAP);
-
-      const tray = new FoundationCell(suit, x, y);
+    Object.values(Suit).forEach((suit) => {
+      const tray = new FoundationCell(suit, 0, 0);
       this.foundation.push(tray);
     });
 
     this.view.positionFoundationTrays(this.foundation);
+  }
+
+  initFoundationState(foundation: Record<Suit, string[]>) {
+    Object.entries(foundation).forEach(([suit, cards]) => {
+      const tray = this.foundation.find((f) => f.suit === suit);
+      cards.forEach((cardId) => {
+        const card = this.getCardById(cardId);
+        tray.addCards(card);
+      });
+    });
+  }
+
+  async initGameState() {
+    const existingState = localStorage.getItem('gameState');
+
+    if (!existingState) {
+      // create the deck array
+      this.resetDeck();
+      // create the deck sprites
+      this.resetDeckSprites();
+
+      await this.dealCards();
+      await this.checkForFoundationCards();
+      return;
+    }
+
+    const state = JSON.parse(existingState) as GameState;
+
+    const { bank, board, deck, deckCell, foundation, moves, movesCache } =
+      state;
+
+    if (bank.length) {
+      this.initBankState(bank);
+    }
+
+    if (board.some((cell) => cell.length)) {
+      this.initBoardState(board);
+    }
+
+    if (deck.length) {
+      this.deck = deck.map((cardId) => this.getCardById(cardId));
+      this.resetDeckSprites();
+    } else if (deckCell) {
+      const card = this.getCardById(deckCell);
+      this.deckCell.addCards(card);
+    }
+
+    if (Object.values(foundation).some((cards) => cards.length)) {
+      this.initFoundationState(foundation);
+    }
+
+    if (moves.length) {
+      store.moves.value = moves;
+    }
+
+    if (movesCache.length) {
+      store.movesCache.value = movesCache;
+    }
   }
 
   getHandOriginObj() {
@@ -398,6 +434,7 @@ export default class Game {
       await this.doCardMove(move);
       this.refreshBank();
       await this.checkForFoundationCards();
+      this.saveGameState();
       return;
     }
 
@@ -405,6 +442,7 @@ export default class Game {
       signalPush(store.moves, move);
       await this.doCardMove(move);
       await this.checkForFoundationCards();
+      this.saveGameState();
       return;
     }
 
@@ -412,6 +450,7 @@ export default class Game {
       signalPush(store.moves, move);
       await this.drawFromDeck();
       await this.checkForFoundationCards();
+      this.saveGameState();
       return;
     }
   }
@@ -422,6 +461,7 @@ export default class Game {
       await this.doCardAutoMove(move);
       this.refreshBank();
       await this.checkForFoundationCards();
+      this.saveGameState();
       return;
     }
 
@@ -429,26 +469,31 @@ export default class Game {
       signalPush(store.moves, move);
       await this.doCardAutoMove(move);
       await this.checkForFoundationCards();
+      this.saveGameState();
       return;
     }
   }
 
   async moveHandToCell(targetCell: Cell) {
+    if (this.handOrigin === BANK_LABEL) {
+      return await this.moveAdd({
+        type: MoveType.BANK_MOVE,
+        cardIds: store.hand.children.map((c) => c.label),
+        from: { kind: 'bank' },
+        to: this.getLocationRef(targetCell)
+      });
+    }
+
     const fromCell =
-      this.handOrigin === BANK_LABEL
-        ? undefined
-        : this.handOrigin === DECK_CELL_LABEL
+      this.handOrigin === DECK_CELL_LABEL
         ? this.deckCell
         : this.board.find((cell) => cell.label === this.handOrigin);
 
-    await this.moveAdd({
-      type:
-        this.handOrigin === BANK_LABEL
-          ? MoveType.BANK_MOVE
-          : MoveType.CELL_MOVE,
-      cards: [...store.hand.children],
-      from: fromCell,
-      to: targetCell
+    return await this.moveAdd({
+      type: MoveType.CELL_MOVE,
+      cardIds: store.hand.children.map((c) => c.label),
+      from: this.getLocationRef(fromCell),
+      to: this.getLocationRef(targetCell)
     });
   }
 
@@ -462,18 +507,21 @@ export default class Game {
     if (move.type === MoveType.BANK_MOVE) {
       await this.redoBankMove(move);
       signalPush(store.moves, move);
+      this.saveGameState();
       return;
     }
 
     if (move.type === MoveType.CELL_MOVE) {
       await this.redoCellMove(move);
       signalPush(store.moves, move);
+      this.saveGameState();
       return;
     }
 
     if (move.type === MoveType.DECK_DRAW) {
       await this.redoDeckDraw();
       signalPush(store.moves, move);
+      this.saveGameState();
       return;
     }
 
@@ -499,15 +547,21 @@ export default class Game {
     if (move.type === MoveType.DECK_DRAW) {
       await this.undoDeckDraw(move);
     }
+
+    this.saveGameState();
   }
 
   async redoBankMove(move: BankMove) {
-    await this.animator.bankToCell(this.bank, move.to);
+    const target = this.getLocation(move.to);
+    await this.animator.bankToCell(this.bank, target);
     this.refreshBank();
   }
 
   async redoCellMove(move: CellMove) {
-    return await this.animator.cellToCell(move.from, move.to, move.cards);
+    const fromLocation = this.getLocation(move.from);
+    const toLocation = this.getLocation(move.to);
+    const cards = this.getCards(move.cardIds);
+    return await this.animator.cellToCell(fromLocation, toLocation, cards);
   }
 
   async redoDeckDraw() {
@@ -529,10 +583,8 @@ export default class Game {
   resetDeck() {
     this.deck = [];
 
-    Object.values(Rank).forEach((rank) => {
-      Object.values(Suit).forEach((suit) => {
-        this.deck.push(new Card(rank, suit));
-      });
+    this.cardsById.forEach((card) => {
+      this.deck.push(card);
     });
 
     this.deck = shuffleCards(this.deck);
@@ -540,33 +592,7 @@ export default class Game {
 
   resetDeckSprites() {
     this.deckSprites.removeChildren();
-
-    this.deck.forEach((card, i) => {
-      const sprite = new Sprite(store.spritesheet.textures['back_red']);
-      sprite.width = store.layout.CARD_W;
-      sprite.height = store.layout.CARD_H;
-      sprite.x = 0;
-      sprite.y = 0;
-
-      const spriteWrap = new Container();
-      spriteWrap.x = 0;
-      spriteWrap.y = i === 0 ? 0 : 0 - i + 0.5 * i;
-
-      // The last card gets a drop shadow.
-      if (i === this.deck.length - 1) {
-        const shadow = new DropShadowFilter({
-          alpha: 0.05,
-          blur: 1,
-          offset: new Point(0, 1),
-          resolution: app.renderer.resolution
-        });
-        spriteWrap.filters = [shadow];
-      }
-
-      spriteWrap.addChild(sprite);
-
-      this.deckSprites.addChild(spriteWrap);
-    });
+    this.deckSprites.addChild(...this.view.getDeckSprites(this.deck.length));
   }
 
   async returnHandToOrigin() {
@@ -627,6 +653,14 @@ export default class Game {
       this.handOrigin = cell.label;
       await this.animator.toHand();
     }
+  }
+
+  async tryRedo() {
+    if (this.animator.isAnimating) {
+      return;
+    }
+
+    return this.moveRedo();
   }
 
   async tryRelease(obj: Card | Cell | Container) {
@@ -698,6 +732,20 @@ export default class Game {
     return this.returnHandToOriginIfDragging();
   }
 
+  async tryReset() {
+    this.resetDeck();
+    this.resetDeckSprites();
+    this.bank.removeChildren();
+    this.deckCell.removeChildren();
+    this.board.forEach((cell) => cell.stack.removeChildren());
+    this.foundation.forEach((tray) => tray.stack.removeChildren());
+    store.moves.value = [];
+    store.movesCache.value = [];
+    await this.dealCards();
+    await this.checkForFoundationCards();
+    this.saveGameState();
+  }
+
   async trySelect(obj: Card | Cell | Container) {
     if (obj instanceof Card) {
       this.selectCardsFromCard(obj);
@@ -716,21 +764,59 @@ export default class Game {
 
       this.moveAdd({
         type: MoveType.DECK_DRAW,
-        cards
+        cardIds: cards.map((_) => _.label)
       });
     }
   }
 
+  async tryUndo() {
+    if (this.animator.isAnimating) {
+      return;
+    }
+
+    this.moveUndo();
+  }
+
+  saveGameState() {
+    const clubs = this.foundation.find((c) => c.suit === Suit.Clubs);
+    const diamonds = this.foundation.find((c) => c.suit === Suit.Diamonds);
+    const hearts = this.foundation.find((c) => c.suit === Suit.Hearts);
+    const spades = this.foundation.find((c) => c.suit === Suit.Spades);
+
+    const game: GameState = {
+      bank: this.bank.children.map((_) => _.label),
+      board: this.board.map((cell) => {
+        return cell.cards.map((card) => card.label);
+      }),
+      deck: this.deck.map((_) => _.label),
+      deckCell: this.deckCell.topCard?.label || '',
+      foundation: {
+        clubs: clubs.cards.map((c) => c.label),
+        diamonds: diamonds.cards.map((c) => c.label),
+        hearts: hearts.cards.map((c) => c.label),
+        spades: spades.cards.map((c) => c.label)
+      },
+      moves: store.moves.value,
+      movesCache: store.movesCache.value
+    };
+
+    localStorage.setItem('gameState', JSON.stringify(game));
+  }
+
   async undoBankMove(move: BankMove) {
-    await this.animator.cellToBank(this.bank, move.to);
+    const target = this.getLocation(move.to);
+    await this.animator.cellToBank(this.bank, target);
     this.refreshBank();
   }
 
   async undoCellMove(move: CellMove) {
-    if (move.to instanceof FoundationCell) {
-      move.cards[0].eventMode = 'static';
+    if (move.to.kind === 'foundation') {
+      this.getCardById(move.cardIds[0]).eventMode = 'static';
     }
-    return this.animator.cellToCell(move.to, move.from, move.cards);
+    const fromLocation = this.getLocation(move.from);
+    const toLocation = this.getLocation(move.to);
+    const cards = this.getCards(move.cardIds);
+    return this.animator.cellToCell(toLocation, fromLocation, cards);
   }
 
   undoDeckDraw(move: DeckDraw) {
@@ -738,11 +824,11 @@ export default class Game {
       const start = this.bank.count - 3;
 
       requestAnimationFrame(async () => {
-        const cards = [...move.cards];
+        const cards = this.getCards(move.cardIds);
 
         const undrawPromise = this.animator.undoDeckDraw(cards, () => {
-          this.deck.push(...move.cards);
-          this.bank.removeChild(...move.cards);
+          this.deck.push(...cards);
+          this.bank.removeChild(...cards);
           this.resetDeckSprites();
           cards.forEach((card) => {
             card.x = 0;

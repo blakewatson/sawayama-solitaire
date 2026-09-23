@@ -12,8 +12,11 @@ export enum InputState {
 }
 
 export interface InputActions {
+  redo: () => void;
+  reset: () => void;
   tryRelease: (obj: Card | Cell | Container) => void;
   trySelect: (obj: Card | Cell | Container) => void;
+  undo: () => void;
 }
 
 export default class InputController {
@@ -131,6 +134,48 @@ export default class InputController {
         this.currentState = InputState.IDLE;
         return;
       }
+    });
+  }
+
+  initDomUi() {
+    // show the row of buttons
+    document.querySelector('.buttons').removeAttribute('hidden');
+
+    const undoButton = document.querySelector(
+      '[data-undo]'
+    ) as HTMLButtonElement;
+    const redoButton = document.querySelector(
+      '[data-redo]'
+    ) as HTMLButtonElement;
+    const resetButtons = Array.from(
+      document.querySelectorAll('.game-over button, [data-reset]')
+    ) as HTMLButtonElement[];
+
+    // undo
+    undoButton.addEventListener('click', () => {
+      this.actions.undo();
+    });
+
+    // redo
+    redoButton.addEventListener('click', () => {
+      this.actions.redo();
+    });
+
+    // reset
+    resetButtons.forEach((el) => {
+      el.addEventListener('click', () => {
+        this.actions.reset();
+      });
+      el.removeAttribute('disabled');
+    });
+
+    // Disable the undo and redo buttons as needed when the moves and movesCache
+    // arrays change.
+    store.moves.subscribe((moves) => {
+      undoButton.disabled = moves.length === 0;
+    });
+    store.movesCache.subscribe((movesCache) => {
+      redoButton.disabled = movesCache.length === 0;
     });
   }
 }

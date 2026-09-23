@@ -36,11 +36,18 @@ export default class Stack extends Container<Card> {
     this.addChild(...cards);
 
     if (this.alignCardsAfterAdding) {
-      this.alignCards();
+      this.alignCardsVertically();
     }
   }
 
-  alignCards() {
+  alignCardsHorizontally() {
+    this.children.forEach((card, i) => {
+      card.x = i * store.layout.CARD_OFFSET_HORIZONTAL;
+      card.y = 0;
+    });
+  }
+
+  alignCardsVertically() {
     this.children.forEach((card, i) => {
       card.y = i * store.layout.CARD_OFFSET_VERTICAL;
       card.x = 0;

@@ -49,6 +49,10 @@ export default class Cell extends Container {
     this.addChild(this.stack);
   }
 
+  get cards() {
+    return this.stack.children;
+  }
+
   get count() {
     return this.stack.count;
   }
@@ -69,8 +73,8 @@ export default class Cell extends Container {
     this.stack.addCards(...cards);
   }
 
-  alignCards() {
-    this.stack.alignCards();
+  alignCardsVertically() {
+    this.stack.alignCardsVertically();
   }
 
   getCard(label: string) {

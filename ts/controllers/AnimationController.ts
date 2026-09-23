@@ -65,7 +65,7 @@ export default class AnimationController {
         onComplete: () => {
           toCell.addCard(card);
           card.x = 0;
-          toCell.alignCards();
+          toCell.alignCardsVertically();
           this.isAnimating = false;
           this.currentAnimation = null;
           resolve(true);
@@ -167,7 +167,7 @@ export default class AnimationController {
             toCell.add(mover.children[0]);
           } else {
             toCell.addCards(...mover.children);
-            toCell.alignCards();
+            toCell.alignCardsVertically();
           }
 
           this.isAnimating = false;
@@ -211,7 +211,7 @@ export default class AnimationController {
           cell.addCard(card); // moves the card to new container
           card.x = 0;
           card.y = 0;
-          cell.alignCards();
+          cell.alignCardsVertically();
           card.eventMode = 'static';
 
           this.isAnimating = false;
@@ -380,7 +380,7 @@ export default class AnimationController {
         },
         onComplete: () => {
           targetCell.addCards(...mover.children);
-          targetCell.alignCards();
+          targetCell.alignCardsVertically();
           store.hand.scale = 1;
           this.view.removeChild(mover);
           mover.destroy();

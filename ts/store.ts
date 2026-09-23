@@ -1,8 +1,6 @@
 import { effect, Signal, signal } from '@preact/signals-core';
 import { Spritesheet } from 'pixi.js';
 import { BANK_LABEL, Suit } from './constants';
-import Card from './entities/Card';
-import Cell from './entities/Cell';
 import Hand from './entities/Hand';
 
 export enum MoveType {
@@ -11,42 +9,74 @@ export enum MoveType {
   CELL_MOVE = 'CELL_MOVE'
 }
 
-interface BaseMove {
-  type: MoveType;
-}
+// interface BaseMove {
+//   type: MoveType;
+// }
 
-export type BankMove = BaseMove & {
-  type: MoveType.BANK_MOVE;
-  to: Cell;
-};
+// export type BankMove = BaseMove & {
+//   type: MoveType.BANK_MOVE;
+//   to: Cell;
+// };
 
-export type DeckDraw = BaseMove & {
-  type: MoveType.DECK_DRAW;
-  cards: Card[];
-};
+// export type DeckDraw = BaseMove & {
+//   type: MoveType.DECK_DRAW;
+//   cards: Card[];
+// };
 
-export type CellMove = BaseMove & {
+// export type CellMove = BaseMove & {
+//   type: MoveType.CELL_MOVE;
+//   cards: Card[];
+//   from: Cell;
+//   to: Cell;
+// };
+
+export type LocationRef =
+  | { kind: 'board'; index: number }
+  | { kind: 'foundation'; suit: Suit }
+  | { kind: 'deckCell' }
+  | { kind: 'bank' };
+
+export type NonBankLocationRef = Exclude<LocationRef, { kind: 'bank' }>;
+export type BankLocationRef = Extract<LocationRef, { kind: 'bank' }>;
+
+export type CellMove = {
   type: MoveType.CELL_MOVE;
-  cards: Card[];
-  from: Cell;
-  to: Cell;
+  cardIds: string[];
+  from: NonBankLocationRef;
+  to: NonBankLocationRef;
+};
+
+export type BankMove = {
+  type: MoveType.BANK_MOVE;
+  cardIds: string[];
+  from: { kind: 'bank' };
+  to: NonBankLocationRef;
+};
+
+export type DeckDraw = {
+  type: MoveType.DECK_DRAW;
+  cardIds: string[];
 };
 
 export type GameMove = BankMove | DeckDraw | CellMove;
 
-interface GameState {
+export interface GameState {
   bank: string[];
+  board: string[][];
   deck: string[];
+  deckCell: string;
   foundation: {
     [Suit.Clubs]: string[];
     [Suit.Diamonds]: string[];
     [Suit.Hearts]: string[];
     [Suit.Spades]: string[];
   };
-  stacks: string[][];
+  moves: GameMove[];
+  movesCache: GameMove[];
 }
 
 interface IStore {
+  gameState: GameState | null;
   hand: Hand | null;
   layout: {
     BANK_POS: { x: number; y: number };
@@ -75,6 +105,7 @@ interface IStore {
 // Cards
 
 export const store: IStore = {
+  gameState: null,
   hand: null,
   layout: {
     BANK_POS: { x: 0, y: 0 },
@@ -201,20 +232,20 @@ export const store: IStore = {
   }
 };
 
-function formatCards(cards: Card[]) {
-  return cards.map((card) => card.label).join(', ');
+function formatCards(cards: string[]) {
+  return cards.join(', ');
 }
 
 function formatMove(move: GameMove) {
   switch (move.type) {
     case MoveType.BANK_MOVE:
-      return `BANK_MOVE: ${BANK_LABEL || 'container'} -> cell ${move.to.label}`;
+      return `BANK_MOVE: ${BANK_LABEL || 'container'} -> cell ${move.to.kind}`;
     case MoveType.DECK_DRAW:
-      return `DECK_DRAW: ${formatCards(move.cards)}`;
+      return `DECK_DRAW: ${formatCards(move.cardIds)}`;
     case MoveType.CELL_MOVE:
-      return `CELL_MOVE: cell ${move.from.label} -> cell ${
-        move.to.label
-      } (${formatCards(move.cards)})`;
+      return `CELL_MOVE: cell ${move.from.kind} -> cell ${
+        move.to.kind
+      } (${formatCards(move.cardIds)})`;
   }
 }
 
