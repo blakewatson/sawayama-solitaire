@@ -16,6 +16,7 @@ export default class Card extends Container {
   elevation = 1;
   isHidden = false;
   isTracking = false;
+  shadow: DropShadowFilter | null = null;
 
   rank: Rank = Rank.Two;
   suit: Suit = Suit.Hearts;
@@ -34,16 +35,14 @@ export default class Card extends Container {
     this.cardSprite = new Sprite(texture);
     this.cardSprite.width = store.layout.CARD_W;
     this.cardSprite.height = store.layout.CARD_H;
-
-    // initial drop shadow
-    const shadow = new DropShadowFilter({
+    this.shadow = new DropShadowFilter({
       alpha: 0.5,
       blur: 1,
       offset: new Point(0, this.elevation),
       resolution: app.renderer.resolution
     });
 
-    this.filters = [shadow];
+    this.addShadow();
 
     this.addChild(this.cardSprite);
 
@@ -56,8 +55,18 @@ export default class Card extends Container {
     Ticker.shared.add(this.update, this);
   }
 
+  addShadow() {
+    if (!this.filters?.includes(this.shadow)) {
+      this.filters = [...(this.filters || []), this.shadow];
+    }
+  }
+
   removeFromTicker() {
     Ticker.shared.remove(this.update, this);
+  }
+
+  removeShadow() {
+    this.filters = null;
   }
 
   update(ticker: Ticker) {

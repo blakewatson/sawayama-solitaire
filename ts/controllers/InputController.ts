@@ -20,15 +20,34 @@ export interface InputActions {
 }
 
 export default class InputController {
-  lastPressedPosition: [number, number] = [0, 0];
-  currentState = InputState.IDLE;
-  view: ViewController | null = null;
   actions: InputActions | null = null;
+  buttons: {
+    undo: HTMLButtonElement | null;
+    redo: HTMLButtonElement | null;
+    reset: HTMLButtonElement | null;
+  } = {
+    undo: null,
+    redo: null,
+    reset: null
+  };
+  currentState = InputState.IDLE;
+  lastPressedPosition: [number, number] = [0, 0];
+  view: ViewController | null = null;
 
   constructor(view: ViewController, actions: InputActions) {
     this.view = view;
     this.actions = actions;
     this.init();
+  }
+
+  disableUndoRedo() {
+    if (this.buttons.undo) {
+      this.buttons.undo.disabled = true;
+    }
+
+    if (this.buttons.redo) {
+      this.buttons.redo.disabled = true;
+    }
   }
 
   getHandIntersection(): Container<ContainerChild> | null {
@@ -150,6 +169,10 @@ export default class InputController {
     const resetButtons = Array.from(
       document.querySelectorAll('.game-over button, [data-reset]')
     ) as HTMLButtonElement[];
+
+    this.buttons.undo = undoButton;
+    this.buttons.redo = redoButton;
+    this.buttons.reset = resetButtons[0];
 
     // undo
     undoButton.addEventListener('click', () => {

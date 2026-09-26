@@ -57,6 +57,10 @@ export default class Cell extends Container {
     return this.stack.count;
   }
 
+  get isSequential() {
+    return this.stack.isSequential;
+  }
+
   get nextCardPosY() {
     return this.y + this.stack.nextCardPosY;
   }

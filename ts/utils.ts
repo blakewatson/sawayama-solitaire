@@ -1,12 +1,23 @@
 import { Signal } from '@preact/signals-core';
-import { Container } from 'pixi.js';
-import { BANK_BG, BANK_LABEL, BOARD_CELL_LABEL, Rank, Suit } from './constants';
+import { Container, Point } from 'pixi.js';
+import {
+  BANK_BG,
+  BANK_LABEL,
+  BOARD_CELL_LABEL,
+  CARD_ANIM_SPEED_MS,
+  Rank,
+  Suit
+} from './constants';
 import Card from './entities/Card';
 import Cell from './entities/Cell';
 import FoundationCell from './entities/FoundationCell';
 import Stack from './entities/Stack';
 
 export const cardsAreSequential = (cards: Card[]) => {
+  if (cards.length < 2) {
+    return true;
+  }
+
   return cards.every((card, i) => {
     if (!i) {
       return true;
@@ -15,6 +26,21 @@ export const cardsAreSequential = (cards: Card[]) => {
     return isFirstCardAllowedOnSecond(card, cards[i - 1]);
   });
 };
+
+export const getAnimationDurationForDistance = (
+  distance: number,
+  multiplier = 1
+) => {
+  // The constant is being treated as a minimum animation speed
+  const durationMs = CARD_ANIM_SPEED_MS + 100 * Math.sqrt(distance / 600);
+  return durationMs / multiplier;
+};
+
+export const getAnimationDurationForPoints = (
+  a: Point,
+  b: Point,
+  multiplier = 1
+) => getAnimationDurationForDistance(getDistance(a, b), multiplier);
 
 export const getCellFromCard = (card: Card): Cell | null => {
   if (card.parent.label === BANK_LABEL) {
@@ -29,6 +55,13 @@ export const getChildByLabel = (parent: Container, label: string) => {
     parent.children.find((child) => child.label && child.label === label) ||
     null
   );
+};
+
+export const getDistance = (a: Point, b: Point) => {
+  const side1 = a.x - b.x;
+  const side2 = a.y - b.y;
+  // return Math.sqrt(side1 ** 2 + side2 ** 2);
+  return Math.hypot(side1, side2);
 };
 
 export const getFoundationCell = (suit: Suit, foundation: FoundationCell[]) =>

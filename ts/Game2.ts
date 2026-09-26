@@ -31,6 +31,8 @@ import {
 import {
   getCellFromCard,
   getChildByLabel,
+  getFoundationCell,
+  getNumericalRank,
   getTargetCell,
   isBankObj,
   isCardOnBoard,
@@ -119,7 +121,7 @@ export default class Game {
     // const cardB = new Card(Rank.Two, Suit.Diamonds);
     // this.board.at(1).addCard(cardB);
 
-    // this.checkForFoundationCards();
+    // this.checkForConditions();
 
     // this.view.initDomUi();
   }
@@ -133,6 +135,14 @@ export default class Game {
         this.cardsById.set(card.label, card);
       });
     });
+  }
+
+  async checkForConditions() {
+    await this.checkForFoundationCards();
+
+    if (this.checkForWin()) {
+      return this.gameOver();
+    }
   }
 
   /**
@@ -175,6 +185,15 @@ export default class Game {
         break;
       }
     }
+  }
+
+  checkForWin() {
+    if (Boolean(this.deckCell.topCard || this.bank.count)) {
+      console.log('not won: deck cell or bank has cards');
+      return false;
+    }
+
+    return this.board.every((cell) => cell.isSequential || !cell.count);
   }
 
   createBoard() {
@@ -269,6 +288,33 @@ export default class Game {
     }
   }
 
+  async gameOver() {
+    let sanity = 0;
+
+    while (this.board.some((cell) => cell.count) && sanity < 10000) {
+      sanity++;
+
+      const lowestCard = this.board.reduce((card: Card | null, cell) => {
+        if (!cell.topCard) {
+          return card;
+        }
+
+        if (!card) {
+          return cell.topCard;
+        }
+
+        return getNumericalRank(cell.topCard.rank) < getNumericalRank(card.rank)
+          ? cell.topCard
+          : card;
+      }, null);
+
+      const fromCell = getCellFromCard(lowestCard);
+      const toCell = getFoundationCell(lowestCard.suit, this.foundation);
+
+      await this.animator.cellToCell(fromCell, toCell, [lowestCard]);
+    }
+  }
+
   getCardById(id: string) {
     const card = this.cardsById.get(id);
 
@@ -359,6 +405,7 @@ export default class Game {
       const tray = this.foundation.find((f) => f.suit === suit);
       cards.forEach((cardId) => {
         const card = this.getCardById(cardId);
+        card.removeShadow();
         tray.addCards(card);
       });
     });
@@ -374,7 +421,7 @@ export default class Game {
       this.resetDeckSprites();
 
       await this.dealCards();
-      await this.checkForFoundationCards();
+      await this.checkForConditions();
       return;
     }
 
@@ -433,7 +480,7 @@ export default class Game {
       signalPush(store.moves, move);
       await this.doCardMove(move);
       this.refreshBank();
-      await this.checkForFoundationCards();
+      await this.checkForConditions();
       this.saveGameState();
       return;
     }
@@ -441,7 +488,7 @@ export default class Game {
     if (move.type === MoveType.CELL_MOVE) {
       signalPush(store.moves, move);
       await this.doCardMove(move);
-      await this.checkForFoundationCards();
+      await this.checkForConditions();
       this.saveGameState();
       return;
     }
@@ -449,7 +496,7 @@ export default class Game {
     if (move.type === MoveType.DECK_DRAW) {
       signalPush(store.moves, move);
       await this.drawFromDeck();
-      await this.checkForFoundationCards();
+      await this.checkForConditions();
       this.saveGameState();
       return;
     }
@@ -460,7 +507,7 @@ export default class Game {
       signalPush(store.moves, move);
       await this.doCardAutoMove(move);
       this.refreshBank();
-      await this.checkForFoundationCards();
+      await this.checkForConditions();
       this.saveGameState();
       return;
     }
@@ -468,7 +515,7 @@ export default class Game {
     if (move.type === MoveType.CELL_MOVE) {
       signalPush(store.moves, move);
       await this.doCardAutoMove(move);
-      await this.checkForFoundationCards();
+      await this.checkForConditions();
       this.saveGameState();
       return;
     }
@@ -584,6 +631,7 @@ export default class Game {
     this.deck = [];
 
     this.cardsById.forEach((card) => {
+      card.addShadow();
       this.deck.push(card);
     });
 
@@ -733,16 +781,19 @@ export default class Game {
   }
 
   async tryReset() {
+    if (this.animator.isAnimating) {
+      return;
+    }
     this.resetDeck();
     this.resetDeckSprites();
     this.bank.removeChildren();
-    this.deckCell.removeChildren();
+    this.deckCell.stack.removeChildren();
     this.board.forEach((cell) => cell.stack.removeChildren());
     this.foundation.forEach((tray) => tray.stack.removeChildren());
     store.moves.value = [];
     store.movesCache.value = [];
     await this.dealCards();
-    await this.checkForFoundationCards();
+    await this.checkForConditions();
     this.saveGameState();
   }
 

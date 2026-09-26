@@ -20,6 +20,12 @@ export default class Stack extends Container<Card> {
     return stackIsSequential(this);
   }
 
+  /** Position of the next card if aligned horizontally. */
+  get nextCardPosX() {
+    return this.count * store.layout.CARD_OFFSET_HORIZONTAL;
+  }
+
+  /** Position of the next card if aligned vertically. */
   get nextCardPosY() {
     return this.count * store.layout.CARD_OFFSET_VERTICAL;
   }

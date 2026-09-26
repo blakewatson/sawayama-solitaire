@@ -1,0 +1,69 @@
+{
+  "bank": [],
+  "board": [
+    [
+      "k_spades",
+      "q_hearts",
+      "j_spades",
+      "10_hearts",
+      "9_spades",
+      "8_hearts",
+      "7_spades",
+      "6_hearts",
+      "5_spades",
+      "4_hearts",
+      "3_spades"
+    ],
+    [
+      "k_hearts",
+      "q_spades",
+      "j_hearts",
+      "10_spades",
+      "9_hearts",
+      "8_spades",
+      "7_hearts",
+      "6_spades",
+      "5_hearts",
+      "4_spades",
+      "3_hearts"
+    ],
+    [
+      "k_clubs",
+      "q_diamonds",
+      "j_clubs",
+      "10_diamonds",
+      "9_clubs",
+      "8_diamonds",
+      "7_clubs",
+      "6_diamonds",
+      "5_clubs",
+      "4_diamonds",
+      "3_clubs"
+    ],
+    [
+      "k_diamonds",
+      "q_clubs",
+      "j_diamonds",
+      "10_clubs",
+      "9_diamonds",
+      "8_clubs",
+      "7_diamonds",
+      "6_clubs",
+      "5_diamonds",
+      "4_clubs"
+    ],
+    [],
+    [],
+    []
+  ],
+  "deck": [],
+  "deckCell": "3_diamonds",
+  "foundation": {
+    "clubs": ["a_clubs", "2_clubs"],
+    "diamonds": ["a_diamonds", "2_diamonds"],
+    "hearts": ["a_hearts", "2_hearts"],
+    "spades": ["a_spades", "2_spades"]
+  },
+  "moves": [],
+  "movesCache": []
+}
