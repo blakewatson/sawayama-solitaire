@@ -574,6 +574,7 @@ export default class AnimationController {
         card.velocityY = rand(1.5, 3) * 1 + (count % 4) * 1.1;
         card.gravity = rand(0.05, 0.15);
         card.addShadow();
+        card.addGlow();
 
         await (function () {
           return new Promise((resolve, reject) => {

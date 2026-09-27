@@ -1,5 +1,13 @@
-import { DropShadowFilter } from 'pixi-filters';
-import { Container, Point, Rectangle, Sprite, Texture, Ticker } from 'pixi.js';
+import { ColorOverlayFilter, DropShadowFilter, GlowFilter } from 'pixi-filters';
+import {
+  Color,
+  Container,
+  Point,
+  Rectangle,
+  Sprite,
+  Texture,
+  Ticker
+} from 'pixi.js';
 import { app } from '../app';
 import { Rank, Suit } from '../constants';
 import { store } from '../store';
@@ -13,9 +21,11 @@ export interface CardClickData {
 export default class Card extends Container {
   cardSprite: Sprite | null = null;
   clickable = false;
-  elevation = 1;
+  glow: GlowFilter | null = null;
+  glowHue = 0;
   isHidden = false;
   isTracking = false;
+  overlay: ColorOverlayFilter | null = null;
   shadow: DropShadowFilter | null = null;
   snapshotTexture: Texture | null = null;
 
@@ -36,11 +46,25 @@ export default class Card extends Container {
     this.cardSprite = new Sprite(texture);
     this.cardSprite.width = store.layout.CARD_W;
     this.cardSprite.height = store.layout.CARD_H;
+
+    // drop shadow
     this.shadow = new DropShadowFilter({
       alpha: 0.5,
       blur: 1,
-      offset: new Point(0, this.elevation),
+      offset: new Point(0, 1),
       resolution: app.renderer.resolution
+    });
+
+    this.glowHue = Math.random() * 360;
+    this.glow = new GlowFilter({
+      color: new Color({ h: this.glowHue, s: 60, l: 50 }),
+      distance: 10,
+      innerStrength: 2,
+      outerStrength: 2
+    });
+    this.overlay = new ColorOverlayFilter({
+      color: new Color({ h: this.glowHue, s: 60, l: 50 }),
+      alpha: 0.15
     });
 
     this.addShadow();
@@ -64,7 +88,22 @@ export default class Card extends Container {
     const copy = new Sprite(this.cardSprite?.texture);
     copy.width = store.layout.CARD_W;
     copy.height = store.layout.CARD_H;
-    copy.filters = this.shadow ? [this.shadow] : [];
+
+    const filters = [];
+
+    if (this.filters.includes(this.shadow)) {
+      filters.push(this.shadow);
+    }
+
+    // if (this.filters.includes(this.glow)) {
+    //   filters.push(this.glow);
+    // }
+
+    // if (this.filters.includes(this.overlay)) {
+    //   filters.push(this.overlay);
+    // }
+
+    copy.filters = filters;
 
     const snapshot = new Container();
     snapshot.addChild(copy);
@@ -82,6 +121,15 @@ export default class Card extends Container {
     return this.snapshotTexture;
   }
 
+  addGlow() {
+    if (!this.filters?.includes(this.glow)) {
+      this.filters = [...(this.filters || []), this.glow];
+    }
+    if (!this.filters?.includes(this.overlay)) {
+      this.filters = [...(this.filters || []), this.overlay];
+    }
+  }
+
   addShadow() {
     if (!this.filters?.includes(this.shadow)) {
       this.filters = [...(this.filters || []), this.shadow];
@@ -93,7 +141,9 @@ export default class Card extends Container {
   }
 
   removeShadow() {
-    this.filters = null;
+    const filters = this.filters.filter((_) => _ !== this.shadow);
+    // this.filters = null;
+    this.filters = filters;
   }
 
   update(ticker: Ticker) {
@@ -115,10 +165,15 @@ export default class Card extends Container {
       this.velocityY = Math.abs(this.velocityY / 1.35);
     }
 
+    this.glowHue += 0.5 * dt;
+    this.glow.color = new Color({ h: this.glowHue, s: 60, l: 80 });
+    this.overlay.color = new Color({ h: this.glowHue, s: 60, l: 50 });
+
     if (globalPosition.x > VIEW_W + 10) {
       this.isHidden = true;
       this.visible = false;
       this.velocityX = 0;
+      this.velocityY = 0;
       this.removeFromTicker();
     }
   }
