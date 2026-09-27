@@ -95,6 +95,9 @@ export default class Game {
     store.hand.eventMode = 'none';
     this.view.addChild(store.hand);
 
+    // the win animation layers go last
+    this.view.initWinAnimationLayers();
+
     // start ticker
     Ticker.shared.add(this.update, this);
 
@@ -139,6 +142,7 @@ export default class Game {
 
   async checkForConditions() {
     await this.checkForFoundationCards();
+    this.saveGameState();
 
     if (this.checkForWin()) {
       return this.gameOver();
@@ -313,6 +317,8 @@ export default class Game {
 
       await this.animator.cellToCell(fromCell, toCell, [lowestCard]);
     }
+
+    await this.animator.winAnimation(this.foundation);
   }
 
   getCardById(id: string) {
@@ -480,24 +486,24 @@ export default class Game {
       signalPush(store.moves, move);
       await this.doCardMove(move);
       this.refreshBank();
-      await this.checkForConditions();
       this.saveGameState();
+      await this.checkForConditions();
       return;
     }
 
     if (move.type === MoveType.CELL_MOVE) {
       signalPush(store.moves, move);
       await this.doCardMove(move);
-      await this.checkForConditions();
       this.saveGameState();
+      await this.checkForConditions();
       return;
     }
 
     if (move.type === MoveType.DECK_DRAW) {
       signalPush(store.moves, move);
       await this.drawFromDeck();
-      await this.checkForConditions();
       this.saveGameState();
+      await this.checkForConditions();
       return;
     }
   }
@@ -507,16 +513,16 @@ export default class Game {
       signalPush(store.moves, move);
       await this.doCardAutoMove(move);
       this.refreshBank();
-      await this.checkForConditions();
       this.saveGameState();
+      await this.checkForConditions();
       return;
     }
 
     if (move.type === MoveType.CELL_MOVE) {
       signalPush(store.moves, move);
       await this.doCardAutoMove(move);
-      await this.checkForConditions();
       this.saveGameState();
+      await this.checkForConditions();
       return;
     }
   }

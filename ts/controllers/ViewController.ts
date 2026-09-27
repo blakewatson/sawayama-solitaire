@@ -22,6 +22,8 @@ export default class ViewController {
   isMobile = false;
   mainScene: Container;
   mainSceneClickHandler: EventListener;
+  winAnimationBackgroundLayer: Container | null;
+  winAnimationCardLayer: Container | null;
 
   constructor(app: Application) {
     this.app = app;
@@ -172,6 +174,13 @@ export default class ViewController {
     }
 
     this.app.stage.addChild(this.mainScene);
+  }
+
+  initWinAnimationLayers() {
+    this.winAnimationBackgroundLayer = new Container();
+    this.winAnimationCardLayer = new Container();
+    console.log('added win animation layers');
+    this.addChild(this.winAnimationBackgroundLayer, this.winAnimationCardLayer);
   }
 
   positionFoundationTrays(foundation: FoundationCell[]) {

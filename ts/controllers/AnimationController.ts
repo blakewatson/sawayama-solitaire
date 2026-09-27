@@ -1,25 +1,31 @@
 import { animate, createTimeline, JSAnimation, stagger } from 'animejs';
-import { Container, ContainerChild, Point } from 'pixi.js';
+import { Container, ContainerChild, Point, Sprite, Ticker } from 'pixi.js';
 import { CARD_ANIM_SPEED_MS, DECK_LABEL } from '../constants';
 import Card from '../entities/Card';
 import Cell from '../entities/Cell';
 import FoundationCell from '../entities/FoundationCell';
 import Stack from '../entities/Stack';
 import { store } from '../store';
-import { getAnimationDurationForPoints } from '../utils';
+import {
+  getAnimationDurationForPoints,
+  isFoundationEmpty,
+  rand
+} from '../utils';
 import ViewController from './ViewController';
 
 export default class AnimationController {
   currentAnimation: JSAnimation | null = null;
   isAnimating = false;
-  handIndicator: Container | null = null;
   view: ViewController | null = null;
+  // winAnimationCards: Card[] = [];
 
   constructor(view: ViewController) {
     this.view = view;
 
     if (this.isMobile) {
-      this.handIndicator = new Container();
+      return this;
+    } else {
+      Ticker.shared.add(this.update, this);
     }
   }
 
@@ -519,5 +525,66 @@ export default class AnimationController {
         }
       });
     });
+  }
+
+  update(ticker: Ticker) {
+    if (!this.view.winAnimationCardLayer.children.length) {
+      return;
+    }
+
+    this.view.winAnimationCardLayer.children.forEach((card: Card, i) => {
+      if (!this.view.winAnimationBackgroundLayer.children[i]) {
+        this.view.winAnimationBackgroundLayer.addChild(new Container());
+        // this.view.addChild(this.view.winAnimationBackgroundLayer.children[i]);
+      }
+
+      if (
+        card.isHidden &&
+        !this.view.winAnimationBackgroundLayer.children[i].isCachedAsTexture
+      ) {
+        this.view.winAnimationBackgroundLayer.children[i].cacheAsTexture(true);
+      } else if (card.isHidden) {
+        return;
+      }
+
+      const sprite = Sprite.from(card.cardAsTexture);
+
+      sprite.eventMode = 'none';
+      sprite.x = card.x - 4;
+      sprite.y = card.y - 4;
+      // sprite.width = store.layout.CARD_W;
+      // sprite.height = store.layout.CARD_H;
+      this.view.winAnimationBackgroundLayer.children[i].addChild(sprite);
+    });
+  }
+
+  async winAnimation(foundation: FoundationCell[]) {
+    let count = 0;
+
+    while (!isFoundationEmpty(foundation) && count < 52) {
+      const cell = foundation.at(count % 4);
+
+      if (cell.topCard) {
+        const card = cell.popCard();
+        this.view.winAnimationCardLayer.addChild(card);
+
+        card.x = cell.x;
+        card.y = cell.y;
+        card.velocityX = rand(1.5, 4);
+        card.velocityY = rand(1.5, 3) * 1 + (count % 4) * 1.1;
+        card.gravity = rand(0.05, 0.15);
+        card.addShadow();
+
+        await (function () {
+          return new Promise((resolve, reject) => {
+            setTimeout(() => {
+              resolve(true);
+            }, 4000);
+          });
+        })();
+      }
+
+      count++;
+    }
   }
 }

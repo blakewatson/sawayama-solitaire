@@ -1,5 +1,5 @@
 import { DropShadowFilter } from 'pixi-filters';
-import { Container, Point, Sprite, Texture, Ticker } from 'pixi.js';
+import { Container, Point, Rectangle, Sprite, Texture, Ticker } from 'pixi.js';
 import { app } from '../app';
 import { Rank, Suit } from '../constants';
 import { store } from '../store';
@@ -17,6 +17,7 @@ export default class Card extends Container {
   isHidden = false;
   isTracking = false;
   shadow: DropShadowFilter | null = null;
+  snapshotTexture: Texture | null = null;
 
   rank: Rank = Rank.Two;
   suit: Suit = Suit.Hearts;
@@ -55,6 +56,32 @@ export default class Card extends Container {
     Ticker.shared.add(this.update, this);
   }
 
+  get cardAsTexture() {
+    if (this.snapshotTexture) {
+      return this.snapshotTexture;
+    }
+
+    const copy = new Sprite(this.cardSprite?.texture);
+    copy.width = store.layout.CARD_W;
+    copy.height = store.layout.CARD_H;
+    copy.filters = this.shadow ? [this.shadow] : [];
+
+    const snapshot = new Container();
+    snapshot.addChild(copy);
+
+    const pad = 4; // room for the shadow beyond the card edges
+    this.snapshotTexture = app.renderer.generateTexture({
+      target: snapshot,
+      frame: new Rectangle(
+        -pad,
+        -pad,
+        store.layout.CARD_W + 2 * pad,
+        store.layout.CARD_H + 2 * pad
+      )
+    });
+    return this.snapshotTexture;
+  }
+
   addShadow() {
     if (!this.filters?.includes(this.shadow)) {
       this.filters = [...(this.filters || []), this.shadow];
@@ -71,6 +98,10 @@ export default class Card extends Container {
 
   update(ticker: Ticker) {
     const dt = ticker.deltaTime;
+
+    if (!this.velocityX && !this.velocityY) {
+      return;
+    }
 
     this.x += dt * this.velocityX;
     this.y -= dt * this.velocityY;
