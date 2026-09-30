@@ -144,10 +144,10 @@ export const isFirstCardAllowedOnSecond = (card1: Card, card2: Card) => {
 };
 
 export const isFoundationEmpty = (foundation: FoundationCell[]): boolean =>
-  foundation.every((tray) => tray.isEmpty());
+  foundation.every((cell) => cell.isEmpty());
 
 export const isFoundationFull = (foundation: FoundationCell[]): boolean =>
-  foundation.every((tray) => tray.isFull());
+  foundation.every((cell) => cell.isFull());
 
 export const isTopCardAnAce = (stack: Stack): boolean => {
   return stack.topCard?.rank === Rank.Ace;

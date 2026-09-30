@@ -37,6 +37,7 @@ import {
   isBankObj,
   isCardOnBoard,
   isFirstCardAllowedOnSecond,
+  isFoundationEmpty,
   shouldAutoMoveTopCard,
   shuffleCards,
   signalPop,
@@ -322,6 +323,7 @@ export default class Game {
       const toCell = getFoundationCell(lowestCard.suit, this.foundation);
 
       await this.animator.cellToCell(fromCell, toCell, [lowestCard]);
+      console.log('isFoundationEmpty', isFoundationEmpty(this.foundation));
     }
 
     await this.animator.winAnimation(this.foundation);

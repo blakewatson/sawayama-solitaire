@@ -220,7 +220,7 @@ export default class AnimationController {
         onComplete: () => {
           if (toCell instanceof FoundationCell) {
             mover.children[0].removeShadow();
-            toCell.add(mover.children[0]);
+            toCell.addCard(mover.children[0]);
           } else {
             toCell.addCards(...mover.children);
             toCell.alignCardsVertically();
