@@ -125,9 +125,9 @@ export default class Card extends Container {
     if (!this.filters?.includes(this.glow)) {
       this.filters = [...(this.filters || []), this.glow];
     }
-    if (!this.filters?.includes(this.overlay)) {
-      this.filters = [...(this.filters || []), this.overlay];
-    }
+    // if (!this.filters?.includes(this.overlay)) {
+    //   this.filters = [...(this.filters || []), this.overlay];
+    // }
   }
 
   addShadow() {
@@ -147,7 +147,7 @@ export default class Card extends Container {
   }
 
   update(ticker: Ticker) {
-    const dt = ticker.deltaTime;
+    const dt = ticker.deltaMS / (1000 / 60); // normalize to 60fps
 
     if (!this.velocityX && !this.velocityY) {
       return;
@@ -155,7 +155,7 @@ export default class Card extends Container {
 
     this.x += dt * this.velocityX;
     this.y -= dt * this.velocityY;
-    this.velocityY -= this.gravity;
+    this.velocityY -= dt * this.gravity;
 
     const globalPosition = this.getGlobalPosition();
 
@@ -165,9 +165,9 @@ export default class Card extends Container {
       this.velocityY = Math.abs(this.velocityY / 1.35);
     }
 
-    this.glowHue += 0.5 * dt;
-    this.glow.color = new Color({ h: this.glowHue, s: 60, l: 80 });
-    this.overlay.color = new Color({ h: this.glowHue, s: 60, l: 50 });
+    // this.glowHue += 0.5 * dt;
+    // this.glow.color = new Color({ h: this.glowHue, s: 60, l: 80 });
+    // this.overlay.color = new Color({ h: this.glowHue, s: 60, l: 50 });
 
     if (globalPosition.x > VIEW_W + 10) {
       this.isHidden = true;

@@ -14,9 +14,7 @@ export let app: Application | null = null;
 init();
 
 async function init() {
-  let isMobile = !window.matchMedia('(min-width: 550px)').matches;
-
-  console.log('isMobile', isMobile);
+  const isMobile = !window.matchMedia('(min-width: 550px)').matches;
 
   // load everything and call main
   const texture = isMobile

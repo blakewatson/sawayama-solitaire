@@ -57,6 +57,7 @@ export default class Game {
   handOffset: [number, number] = [0, 0];
   handOrigin = '';
   input: InputController | null = null;
+  isGameOver = false;
   view: ViewController | null = null;
 
   constructor(app: Application) {
@@ -192,7 +193,7 @@ export default class Game {
   }
 
   checkForWin() {
-    if (Boolean(this.deckCell.topCard || this.bank.count)) {
+    if (Boolean(this.deck.length || this.deckCell.count || this.bank.count)) {
       console.log('not won: deck cell or bank has cards');
       return false;
     }
@@ -293,9 +294,14 @@ export default class Game {
   }
 
   async gameOver() {
+    this.isGameOver = true;
     let sanity = 0;
 
-    while (this.board.some((cell) => cell.count) && sanity < 10000) {
+    while (
+      this.board.some((cell) => cell.count) &&
+      sanity < 10000 &&
+      this.isGameOver
+    ) {
       sanity++;
 
       const lowestCard = this.board.reduce((card: Card | null, cell) => {
@@ -718,6 +724,8 @@ export default class Game {
   }
 
   async tryRelease(obj: Card | Cell | Container) {
+    this.animator.currentAnimation?.cancel();
+
     if (!store.hand.count) {
       return;
     }
@@ -787,9 +795,26 @@ export default class Game {
   }
 
   async tryReset() {
+    this.isGameOver = false;
     if (this.animator.isAnimating) {
-      return;
+      this.animator.currentAnimation.cancel();
     }
+    this.view.winAnimationCardLayer.removeChildren();
+    this.view.winAnimationBackgroundLayer.removeChildren();
+
+    // remove all cards from the game view and reset them
+    this.cardsById.forEach((card) => {
+      card.filters = null;
+      card.parent?.removeChild(card);
+      card.isHidden = false;
+      card.visible = true;
+      card.velocityX = 0;
+      card.velocityY = 0;
+      card.gravity = 0;
+      card.x = 0;
+      card.y = 0;
+    });
+
     this.resetDeck();
     this.resetDeckSprites();
     this.bank.removeChildren();
@@ -898,6 +923,8 @@ export default class Game {
         const cascadePromise = this.animator.deckCascade(deckCards);
 
         await Promise.all([undrawPromise, cascadePromise]);
+
+        this.refreshBank();
 
         resolve(true);
       });
