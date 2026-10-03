@@ -76,8 +76,7 @@ export default class Card extends Container {
     this.label = `${rank}_${suit}`;
 
     this.eventMode = 'static';
-
-    Ticker.shared.add(this.update, this);
+    this.addToTicker();
   }
 
   get cardAsTexture() {
@@ -136,12 +135,16 @@ export default class Card extends Container {
     }
   }
 
+  addToTicker() {
+    Ticker.shared.add(this.update, this);
+  }
+
   removeFromTicker() {
     Ticker.shared.remove(this.update, this);
   }
 
   removeShadow() {
-    const filters = this.filters.filter((_) => _ !== this.shadow);
+    const filters = this.filters?.filter((_) => _ !== this.shadow) || [];
     // this.filters = null;
     this.filters = filters;
   }

@@ -1,4 +1,10 @@
-import { animate, createTimeline, JSAnimation, stagger } from 'animejs';
+import {
+  animate,
+  createTimeline,
+  JSAnimation,
+  stagger,
+  Timeline
+} from 'animejs';
 import {
   Container,
   ContainerChild,
@@ -29,8 +35,9 @@ type TrailState = {
 };
 
 export default class AnimationController {
-  currentAnimation: JSAnimation | null = null;
-  isAnimating = false;
+  activeAnimations: Array<JSAnimation | Timeline> = [];
+  disabled = false;
+  isWinAnimation = false;
   lastSpriteAddedTimeByCard: Record<string, number> = {};
   trailStateByCard: Map<Card, TrailState> = new Map();
   view: ViewController | null = null;
@@ -40,6 +47,19 @@ export default class AnimationController {
     this.view = view;
 
     Ticker.shared.add(this.update, this, UPDATE_PRIORITY.LOW);
+  }
+
+  get isAnimating() {
+    if (this.activeAnimations.length === 0) {
+      return false;
+    }
+
+    return this.activeAnimations.every(
+      (animOrTimeline) =>
+        !animOrTimeline.paused &&
+        !animOrTimeline.completed &&
+        !animOrTimeline.cancelled
+    );
   }
 
   get isMobile() {
@@ -61,6 +81,10 @@ export default class AnimationController {
 
   bankToCell(bank: Stack, toCell: Cell) {
     return new Promise((resolve, reject) => {
+      if (this.disabled) {
+        return resolve(false);
+      }
+
       const scene = this.view.mainScene;
 
       const card = bank.topCard;
@@ -94,32 +118,45 @@ export default class AnimationController {
         y: mover.y
       };
 
-      this.isAnimating = true;
-
       // animate to position
-      this.currentAnimation = animate(animProxy, {
-        x: dest.x,
-        y: dest.y,
-        duration: getAnimationDurationForPoints(start, dest),
-        ease: 'inOutSine',
-        onUpdate: (anim) => {
-          mover.x = animProxy.x;
-          mover.y = animProxy.y;
-        },
-        onComplete: () => {
-          toCell.addCard(card);
-          card.x = 0;
-          toCell.alignCardsVertically();
-          this.isAnimating = false;
-          this.currentAnimation = null;
-          resolve(true);
-        }
-      });
+      this.activeAnimations.push(
+        animate(animProxy, {
+          x: dest.x,
+          y: dest.y,
+          duration: getAnimationDurationForPoints(start, dest),
+          ease: 'inOutSine',
+          onUpdate: (anim) => {
+            mover.x = animProxy.x;
+            mover.y = animProxy.y;
+          },
+          onComplete: (anim) => {
+            toCell.addCard(card);
+            card.x = 0;
+            toCell.alignCardsVertically();
+            this.removeActiveAnimation(anim);
+            resolve(true);
+          },
+          onPause: (anim) => {
+            this.removeActiveAnimation(anim);
+            resolve(false);
+          }
+        })
+      );
     });
+  }
+
+  cancelActiveAnimations() {
+    this.activeAnimations.forEach((anim) => anim.cancel());
+    this.activeAnimations = [];
+    this.isWinAnimation = false;
   }
 
   cellToBank(bank: Stack, fromCell: Cell) {
     return new Promise((resolve, _) => {
+      if (this.disabled) {
+        return resolve(false);
+      }
+
       const scene = this.view.mainScene;
 
       // get card position in mainScene space
@@ -147,27 +184,30 @@ export default class AnimationController {
         y: mover.y
       };
 
-      this.isAnimating = true;
-
       // animate to position
-      this.currentAnimation = animate(animProxy, {
-        x: dest.x,
-        y: dest.y,
-        duration: getAnimationDurationForPoints(start, dest),
-        ease: 'inOutSine',
-        onUpdate: (anim) => {
-          mover.x = animProxy.x;
-          mover.y = animProxy.y;
-        },
-        onComplete: () => {
-          bank.addCards(card);
-          card.y = 0;
-          card.x = store.layout.CARD_OFFSET_HORIZONTAL * (bank.count - 1);
-          this.isAnimating = false;
-          this.currentAnimation = null;
-          resolve(true);
-        }
-      });
+      this.activeAnimations.push(
+        animate(animProxy, {
+          x: dest.x,
+          y: dest.y,
+          duration: getAnimationDurationForPoints(start, dest),
+          ease: 'inOutSine',
+          onUpdate: (anim) => {
+            mover.x = animProxy.x;
+            mover.y = animProxy.y;
+          },
+          onComplete: (anim) => {
+            bank.addCards(card);
+            card.y = 0;
+            card.x = store.layout.CARD_OFFSET_HORIZONTAL * (bank.count - 1);
+            this.removeActiveAnimation(anim);
+            resolve(true);
+          },
+          onPause: (anim) => {
+            this.removeActiveAnimation(anim);
+            resolve(false);
+          }
+        })
+      );
     });
   }
 
@@ -205,33 +245,54 @@ export default class AnimationController {
         y: mover.y
       };
 
-      this.isAnimating = true;
-
       // animate to position
-      this.currentAnimation = animate(animProxy, {
-        x: dest.x,
-        y: dest.y,
-        duration: getAnimationDurationForPoints(start, dest),
-        ease: 'inOutSine',
-        onUpdate: (anim) => {
-          mover.x = animProxy.x;
-          mover.y = animProxy.y;
-        },
-        onComplete: () => {
-          if (toCell instanceof FoundationCell) {
-            mover.children[0].removeShadow();
-            toCell.addCard(mover.children[0]);
-          } else {
-            toCell.addCards(...mover.children);
-            toCell.alignCardsVertically();
-          }
+      this.activeAnimations.push(
+        animate(animProxy, {
+          x: dest.x,
+          y: dest.y,
+          duration: getAnimationDurationForPoints(start, dest),
+          ease: 'inOutSine',
+          onUpdate: (anim) => {
+            mover.x = animProxy.x;
+            mover.y = animProxy.y;
+          },
+          onComplete: (anim) => {
+            if (toCell instanceof FoundationCell) {
+              mover.children[0].removeShadow();
+              toCell.addCard(mover.children[0]);
+            } else {
+              toCell.addCards(...mover.children);
+              toCell.alignCardsVertically();
+            }
 
-          this.isAnimating = false;
-          this.currentAnimation = null;
-          resolve(true);
-        }
-      });
+            this.removeActiveAnimation(anim);
+            resolve(true);
+          },
+          onPause: (anim) => {
+            this.removeActiveAnimation(anim);
+            resolve(false);
+          }
+        })
+      );
     });
+  }
+
+  completeHandAnimation() {
+    const handAnimExisting = this.activeAnimations.find(
+      (anim) => anim.id === 'handAnim'
+    );
+
+    if (
+      handAnimExisting &&
+      !handAnimExisting.cancelled &&
+      !handAnimExisting.paused &&
+      !handAnimExisting.completed
+    ) {
+      handAnimExisting.seek(handAnimExisting.duration);
+      this.activeAnimations = this.activeAnimations.filter(
+        (anim) => anim !== handAnimExisting
+      );
+    }
   }
 
   dealCard(card: Card, cell: Cell) {
@@ -254,43 +315,48 @@ export default class AnimationController {
       // make the deck visibly smaller. TODO: Is this an acceptable side effect?
       deckSprites.children.pop();
 
-      this.isAnimating = true;
+      this.activeAnimations.push(
+        animate(card, {
+          x: cell.x,
+          y: cell.nextCardPosY,
+          ease: 'easeInOutSine',
+          duration: getAnimationDurationForPoints(
+            new Point(card.x, card.y),
+            new Point(cell.x, cell.nextCardPosY),
+            1.75
+          ),
+          onComplete: (anim) => {
+            // Remove the card from the main scene
+            this.view.removeChild(card);
+            cell.addCard(card); // moves the card to new container
+            card.x = 0;
+            card.y = 0;
+            cell.alignCardsVertically();
+            card.eventMode = 'static';
 
-      this.currentAnimation = animate(card, {
-        x: cell.x,
-        y: cell.nextCardPosY,
-        ease: 'easeInOutSine',
-        duration: getAnimationDurationForPoints(
-          new Point(card.x, card.y),
-          new Point(cell.x, cell.nextCardPosY),
-          1.75
-        ),
-        onComplete: () => {
-          // Remove the card from the main scene
-          this.view.removeChild(card);
-          cell.addCard(card); // moves the card to new container
-          card.x = 0;
-          card.y = 0;
-          cell.alignCardsVertically();
-          card.eventMode = 'static';
-
-          this.isAnimating = false;
-          resolve(true);
-        }
-      });
+            this.removeActiveAnimation(anim);
+            resolve(true);
+          },
+          onPause: (anim) => {
+            this.removeActiveAnimation(anim);
+            resolve(false);
+          }
+        })
+      );
     });
   }
 
   deckCascade(deckCards: ContainerChild[]) {
     return new Promise((resolve, reject) => {
-      this.isAnimating = true;
-
       const tl = createTimeline({
         duration: 1000,
-        onComplete: () => {
-          this.isAnimating = false;
-          this.currentAnimation = null;
+        onComplete: (self) => {
+          this.removeActiveAnimation(self);
           resolve(true);
+        },
+        onPause: (self) => {
+          this.removeActiveAnimation(self);
+          resolve(false);
         }
       });
 
@@ -306,6 +372,8 @@ export default class AnimationController {
         ease: 'outSine',
         delay: stagger(10)
       });
+
+      this.activeAnimations.push(tl);
     });
   }
 
@@ -319,28 +387,34 @@ export default class AnimationController {
         return reject('deckSprites not found');
       }
 
-      this.isAnimating = true;
-
       const x = store.layout.CARD_OFFSET_HORIZONTAL * (bankLength - 1);
 
-      animate(card, {
-        x,
-        y: 0,
-        duration: CARD_ANIM_SPEED_MS,
-        ease: 'easeOutSine',
-        onChangeBegin: () => {
-          deckSprites.removeChildAt(deckSprites.children.length - 1);
-        },
-        onComplete: () => {
-          this.isAnimating = false;
-          resolve(true);
-        }
-      });
+      this.activeAnimations.push(
+        animate(card, {
+          x,
+          y: 0,
+          duration: CARD_ANIM_SPEED_MS,
+          ease: 'easeOutSine',
+          onChangeBegin: () => {
+            deckSprites.removeChildAt(deckSprites.children.length - 1);
+          },
+          onComplete: (anim) => {
+            this.removeActiveAnimation(anim);
+            resolve(true);
+          },
+          onPause: (anim) => {
+            this.removeActiveAnimation(anim);
+            resolve(false);
+          }
+        })
+      );
     });
   }
 
   handToBank(bank: Stack, duration = 75) {
     return new Promise((resolve, reject) => {
+      this.completeHandAnimation();
+
       // get target position
       const targetPos = bank.getGlobalPosition();
       // get hand position
@@ -362,10 +436,8 @@ export default class AnimationController {
         scale: 1.15
       };
 
-      this.isAnimating = true;
-
       // animate to position
-      this.currentAnimation = animate(animProxy, {
+      const handAnim = animate(animProxy, {
         x:
           targetPos.x -
           card.x +
@@ -379,7 +451,7 @@ export default class AnimationController {
           mover.y = animProxy.y;
           mover.scale = animProxy.scale;
         },
-        onComplete: () => {
+        onComplete: (anim) => {
           bank.addCards(card);
           card.x = store.layout.CARD_OFFSET_HORIZONTAL * (bank.count - 1);
           card.y = 0;
@@ -387,20 +459,23 @@ export default class AnimationController {
           store.hand.scale = 1;
           this.view.removeChild(mover);
           mover.destroy();
-          this.isAnimating = false;
-          this.currentAnimation = null;
+          this.removeActiveAnimation(anim);
           resolve(true);
+        },
+        onPause: (anim) => {
+          this.removeActiveAnimation(anim);
+          resolve(false);
         }
       });
+
+      handAnim.id = 'handAnim';
+      this.activeAnimations.push(handAnim);
     });
   }
 
   handToCell(targetCell: Cell, duration = 75) {
     return new Promise((resolve, reject) => {
-      if (this.currentAnimation) {
-        this.currentAnimation.seek(this.currentAnimation.duration);
-        this.currentAnimation = null;
-      }
+      this.completeHandAnimation();
 
       // get target position
       const targetPos = targetCell.getGlobalPosition();
@@ -423,10 +498,8 @@ export default class AnimationController {
         scale: 1.15
       };
 
-      this.isAnimating = true;
-
       // animate to position
-      this.currentAnimation = animate(animProxy, {
+      const handAnim = animate(animProxy, {
         x: targetPos.x - card.x,
         y:
           targetPos.y -
@@ -440,22 +513,30 @@ export default class AnimationController {
           mover.y = animProxy.y;
           mover.scale = animProxy.scale;
         },
-        onComplete: () => {
+        onComplete: (anim) => {
           targetCell.addCards(...mover.children);
           targetCell.alignCardsVertically();
           store.hand.scale = 1;
           this.view.removeChild(mover);
           mover.destroy();
-          this.isAnimating = false;
-          this.currentAnimation = null;
+          this.removeActiveAnimation(anim);
           resolve(true);
+        },
+        onPause: (anim) => {
+          this.removeActiveAnimation(anim);
+          resolve(false);
         }
       });
+
+      handAnim.id = 'handAnim';
+      this.activeAnimations.push(handAnim);
     });
   }
 
   handToFoundationCell(cell: FoundationCell) {
     return new Promise((resolve, reject) => {
+      this.completeHandAnimation();
+
       // get target position
       const targetPos = cell.getGlobalPosition();
       // get hand position
@@ -477,10 +558,8 @@ export default class AnimationController {
         scale: 1.15
       };
 
-      this.isAnimating = true;
-
       // animate to position
-      this.currentAnimation = animate(animProxy, {
+      const handAnim = animate(animProxy, {
         x: targetPos.x - card.x,
         y: targetPos.y - card.y,
         scale: 1,
@@ -491,65 +570,89 @@ export default class AnimationController {
           mover.y = animProxy.y;
           mover.scale = animProxy.scale;
         },
-        onComplete: () => {
+        onComplete: (anim) => {
           cell.add(card);
 
           store.hand.scale = 1;
           this.view.removeChild(mover);
           mover.destroy();
-          this.isAnimating = false;
-          this.currentAnimation = null;
+          this.removeActiveAnimation(anim);
           resolve(true);
+        },
+        onPause: (anim) => {
+          this.removeActiveAnimation(anim);
+          resolve(false);
         }
       });
+
+      handAnim.id = 'handAnim';
+      this.activeAnimations.push(handAnim);
     });
+  }
+
+  private removeActiveAnimation(anim: JSAnimation | Timeline) {
+    this.activeAnimations = this.activeAnimations.filter((_) => _ !== anim);
+  }
+
+  resetWinAnimation() {
+    this.isWinAnimation = false;
+    this.view.winAnimationCardLayer.removeChildren();
+    this.view.winAnimationBackgroundLayer.removeChildren();
+    this.trailStateByCard = new Map();
   }
 
   toHand() {
     return new Promise((resolve, _) => {
-      console.log('handPos', store.hand.x, store.hand.y);
+      this.completeHandAnimation();
 
       const scaleObj = { scale: 1 };
 
-      this.isAnimating = true;
-
-      this.currentAnimation = animate(scaleObj, {
+      const handAnim = animate(scaleObj, {
         scale: 1.15,
         ease: 'outBack(4)',
         duration: 200,
         onUpdate: (anim) => {
           store.hand.scale = scaleObj.scale;
         },
-        onComplete: () => {
-          this.isAnimating = false;
-          this.currentAnimation = null;
+        onComplete: (anim) => {
+          this.removeActiveAnimation(anim);
           resolve(true);
+        },
+        onPause: (anim) => {
+          this.removeActiveAnimation(anim);
+          resolve(false);
         }
       });
+
+      handAnim.id = 'handAnim';
+      this.activeAnimations.push(handAnim);
     });
   }
 
   undoDeckDraw(cards: Card[], onComplete: Function) {
     return new Promise((resolve, _) => {
-      this.isAnimating = true;
-
-      this.currentAnimation = animate(cards, {
-        x: `-=${store.layout.CARD_W}`,
-        y: `-=${store.layout.CARD_H / 6}`,
-        alpha: {
-          to: 0,
-          ease: 'inQuint'
-        },
-        duration: 150,
-        delay: stagger(75),
-        ease: 'inQuad',
-        onComplete: () => {
-          onComplete();
-          this.isAnimating = false;
-          this.currentAnimation = null;
-          resolve(true);
-        }
-      });
+      this.activeAnimations.push(
+        animate(cards, {
+          x: `-=${store.layout.CARD_W}`,
+          y: `-=${store.layout.CARD_H / 6}`,
+          alpha: {
+            to: 0,
+            ease: 'inQuint'
+          },
+          duration: 150,
+          delay: stagger(75),
+          ease: 'inQuad',
+          onComplete: (anim) => {
+            onComplete();
+            this.removeActiveAnimation(anim);
+            resolve(true);
+          },
+          onPause: (anim) => {
+            this.removeActiveAnimation(anim);
+            resolve(false);
+          }
+        })
+      );
     });
   }
 
@@ -605,16 +708,25 @@ export default class AnimationController {
 
   async winAnimation(foundation: FoundationCell[]) {
     let count = 0;
+    // Set this so that the animation can be canceled from the outside.
+    this.isWinAnimation = true;
 
-    while (!isFoundationEmpty(foundation) && count < 52) {
+    while (
+      !isFoundationEmpty(foundation) &&
+      count < 52 &&
+      this.isWinAnimation
+    ) {
+      if (!this.isWinAnimation) {
+        return;
+      }
+
       const cell = foundation.at(count % 4);
 
       if (cell.topCard) {
         const card = cell.popCard();
-        this.view.winAnimationCardLayer.addChild(card);
-
         card.x = cell.x;
         card.y = cell.y;
+
         card.addShadow();
         // card.addGlow();
 
@@ -628,6 +740,8 @@ export default class AnimationController {
           card.gravity = rand(0.05, 0.15);
         }
 
+        this.view.winAnimationCardLayer.addChild(card);
+
         await (function () {
           return new Promise((resolve, reject) => {
             setTimeout(() => {
@@ -639,5 +753,7 @@ export default class AnimationController {
 
       count++;
     }
+
+    this.isWinAnimation = false;
   }
 }

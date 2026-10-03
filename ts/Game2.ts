@@ -37,7 +37,6 @@ import {
   isBankObj,
   isCardOnBoard,
   isFirstCardAllowedOnSecond,
-  isFoundationEmpty,
   shouldAutoMoveTopCard,
   shuffleCards,
   signalPop,
@@ -323,7 +322,10 @@ export default class Game {
       const toCell = getFoundationCell(lowestCard.suit, this.foundation);
 
       await this.animator.cellToCell(fromCell, toCell, [lowestCard]);
-      console.log('isFoundationEmpty', isFoundationEmpty(this.foundation));
+    }
+
+    if (!this.isGameOver) {
+      return;
     }
 
     await this.animator.winAnimation(this.foundation);
@@ -454,11 +456,12 @@ export default class Game {
 
     if (deck.length) {
       this.deck = deck.map((cardId) => this.getCardById(cardId));
-      this.resetDeckSprites();
     } else if (deckCell) {
       const card = this.getCardById(deckCell);
       this.deckCell.addCards(card);
     }
+
+    this.resetDeckSprites();
 
     if (Object.values(foundation).some((cards) => cards.length)) {
       this.initFoundationState(foundation);
@@ -590,7 +593,10 @@ export default class Game {
   }
 
   async moveUndo() {
+    console.log('moveUndo');
     if (!store.moves.value.length || this.animator.isAnimating) {
+      console.log('store.moves.value.length', store.moves.value.length);
+      console.log('this.animator.isAnimating', this.animator.isAnimating);
       return;
     }
 
@@ -654,6 +660,11 @@ export default class Game {
 
   resetDeckSprites() {
     this.deckSprites.removeChildren();
+
+    if (!this.deck.length) {
+      return;
+    }
+
     this.deckSprites.addChild(...this.view.getDeckSprites(this.deck.length));
   }
 
@@ -675,6 +686,32 @@ export default class Game {
     if (this.input.currentState === InputState.DRAGGING) {
       this.returnHandToOrigin();
     }
+  }
+
+  saveGameState() {
+    const clubs = this.foundation.find((c) => c.suit === Suit.Clubs);
+    const diamonds = this.foundation.find((c) => c.suit === Suit.Diamonds);
+    const hearts = this.foundation.find((c) => c.suit === Suit.Hearts);
+    const spades = this.foundation.find((c) => c.suit === Suit.Spades);
+
+    const game: GameState = {
+      bank: this.bank.children.map((_) => _.label),
+      board: this.board.map((cell) => {
+        return cell.cards.map((card) => card.label);
+      }),
+      deck: this.deck.map((_) => _.label),
+      deckCell: this.deckCell.topCard?.label || '',
+      foundation: {
+        clubs: clubs.cards.map((c) => c.label),
+        diamonds: diamonds.cards.map((c) => c.label),
+        hearts: hearts.cards.map((c) => c.label),
+        spades: spades.cards.map((c) => c.label)
+      },
+      moves: store.moves.value,
+      movesCache: store.movesCache.value
+    };
+
+    localStorage.setItem('gameState', JSON.stringify(game));
   }
 
   async selectCardsFromCard(card: Card) {
@@ -726,7 +763,7 @@ export default class Game {
   }
 
   async tryRelease(obj: Card | Cell | Container) {
-    this.animator.currentAnimation?.cancel();
+    this.animator.completeHandAnimation();
 
     if (!store.hand.count) {
       return;
@@ -796,33 +833,45 @@ export default class Game {
     return this.returnHandToOriginIfDragging();
   }
 
-  async tryReset() {
+  async tryReset(useExistingGameState = false) {
     this.isGameOver = false;
-    if (this.animator.isAnimating) {
-      this.animator.currentAnimation.cancel();
-    }
-    this.view.winAnimationCardLayer.removeChildren();
-    this.view.winAnimationBackgroundLayer.removeChildren();
+
+    this.animator.resetWinAnimation();
+    this.animator.cancelActiveAnimations();
+    console.log('Active animations cancelled.');
 
     // remove all cards from the game view and reset them
     this.cardsById.forEach((card) => {
       card.filters = null;
       card.parent?.removeChild(card);
-      card.isHidden = false;
       card.visible = true;
       card.velocityX = 0;
       card.velocityY = 0;
       card.gravity = 0;
       card.x = 0;
       card.y = 0;
-    });
+      card.eventMode = 'static';
+      card.addShadow();
 
-    this.resetDeck();
-    this.resetDeckSprites();
+      if (card.isHidden) {
+        card.addToTicker();
+      }
+
+      card.isHidden = false;
+    });
     this.bank.removeChildren();
     this.deckCell.stack.removeChildren();
     this.board.forEach((cell) => cell.stack.removeChildren());
     this.foundation.forEach((tray) => tray.stack.removeChildren());
+
+    if (useExistingGameState) {
+      await this.initGameState();
+      return;
+    }
+
+    this.resetDeck();
+    this.resetDeckSprites();
+
     store.moves.value = [];
     store.movesCache.value = [];
     await this.dealCards();
@@ -854,37 +903,16 @@ export default class Game {
   }
 
   async tryUndo() {
+    if (this.isGameOver) {
+      this.undoGameOver();
+      return;
+    }
+
     if (this.animator.isAnimating) {
       return;
     }
 
     this.moveUndo();
-  }
-
-  saveGameState() {
-    const clubs = this.foundation.find((c) => c.suit === Suit.Clubs);
-    const diamonds = this.foundation.find((c) => c.suit === Suit.Diamonds);
-    const hearts = this.foundation.find((c) => c.suit === Suit.Hearts);
-    const spades = this.foundation.find((c) => c.suit === Suit.Spades);
-
-    const game: GameState = {
-      bank: this.bank.children.map((_) => _.label),
-      board: this.board.map((cell) => {
-        return cell.cards.map((card) => card.label);
-      }),
-      deck: this.deck.map((_) => _.label),
-      deckCell: this.deckCell.topCard?.label || '',
-      foundation: {
-        clubs: clubs.cards.map((c) => c.label),
-        diamonds: diamonds.cards.map((c) => c.label),
-        hearts: hearts.cards.map((c) => c.label),
-        spades: spades.cards.map((c) => c.label)
-      },
-      moves: store.moves.value,
-      movesCache: store.movesCache.value
-    };
-
-    localStorage.setItem('gameState', JSON.stringify(game));
   }
 
   async undoBankMove(move: BankMove) {
@@ -931,6 +959,11 @@ export default class Game {
         resolve(true);
       });
     });
+  }
+
+  async undoGameOver() {
+    await this.tryReset(true);
+    this.moveUndo();
   }
 
   update(ticker: Ticker) {
