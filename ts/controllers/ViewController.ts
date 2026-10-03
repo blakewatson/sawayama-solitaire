@@ -67,6 +67,10 @@ export default class ViewController {
     return cardSprites;
   }
 
+  hideWinOverlay() {
+    document.querySelector('.game-over').classList.remove('active');
+  }
+
   initBank() {
     const bank = new Stack(BANK_LABEL);
     bank.alignCardsAfterAdding = false;
@@ -149,11 +153,9 @@ export default class ViewController {
 
   initLayout() {
     if (window.matchMedia('(min-width: 550px)').matches) {
-      console.log('DESKTOP');
       this.isMobile = false;
       return;
     } else {
-      console.log('MOBILE1');
       this.isMobile = true;
       return;
     }
@@ -179,7 +181,6 @@ export default class ViewController {
   initWinAnimationLayers() {
     this.winAnimationBackgroundLayer = new Container();
     this.winAnimationCardLayer = new Container();
-    console.log('added win animation layers');
     this.addChild(this.winAnimationBackgroundLayer, this.winAnimationCardLayer);
   }
 
@@ -205,5 +206,9 @@ export default class ViewController {
 
   removeChild(...children: Container[]) {
     this.mainScene.removeChild(...children);
+  }
+
+  showWinOverlay() {
+    document.querySelector('.game-over').classList.add('active');
   }
 }

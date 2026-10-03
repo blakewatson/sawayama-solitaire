@@ -22,13 +22,13 @@ export interface InputActions {
 export default class InputController {
   actions: InputActions | null = null;
   buttons: {
-    undo: HTMLButtonElement | null;
+    undo: HTMLButtonElement[];
     redo: HTMLButtonElement | null;
-    reset: HTMLButtonElement | null;
+    reset: HTMLButtonElement[];
   } = {
-    undo: null,
+    undo: [],
     redo: null,
-    reset: null
+    reset: []
   };
   currentState = InputState.IDLE;
   lastPressedPosition: [number, number] = [0, 0];
@@ -41,8 +41,8 @@ export default class InputController {
   }
 
   disableUndoRedo() {
-    if (this.buttons.undo) {
-      this.buttons.undo.disabled = true;
+    if (this.buttons.undo.length) {
+      this.buttons.undo.forEach((btn) => (btn.disabled = true));
     }
 
     if (this.buttons.redo) {
@@ -90,11 +90,6 @@ export default class InputController {
           CARD_DRAG_THRESHOLD
       ) {
         this.currentState = InputState.DRAGGING;
-        console.log(
-          'dragging started',
-          this.lastPressedPosition,
-          store.mousePosition
-        );
       }
     });
 
@@ -116,7 +111,6 @@ export default class InputController {
         const obj = this.getHandIntersection();
 
         this.actions.tryRelease(obj);
-        console.log('release hit test', obj);
         return;
       }
 
@@ -124,8 +118,6 @@ export default class InputController {
       const obj: Card | Cell | Container = boundary.hitTest(
         ...store.mousePosition
       );
-
-      console.log('pointerdown hit test', obj);
 
       this.actions.trySelect(obj);
     });
@@ -147,7 +139,6 @@ export default class InputController {
           const obj = this.getHandIntersection();
 
           this.actions.tryRelease(obj);
-          console.log('pointerup release hit test', obj);
         }
 
         this.currentState = InputState.IDLE;
@@ -160,23 +151,25 @@ export default class InputController {
     // show the row of buttons
     document.querySelector('.buttons').removeAttribute('hidden');
 
-    const undoButton = document.querySelector(
-      '[data-undo]'
-    ) as HTMLButtonElement;
+    const undoButtons = Array.from(
+      document.querySelectorAll('[data-undo]')
+    ) as HTMLButtonElement[];
     const redoButton = document.querySelector(
       '[data-redo]'
     ) as HTMLButtonElement;
     const resetButtons = Array.from(
-      document.querySelectorAll('.game-over button, [data-reset]')
+      document.querySelectorAll('[data-reset]')
     ) as HTMLButtonElement[];
 
-    this.buttons.undo = undoButton;
+    this.buttons.undo = undoButtons;
     this.buttons.redo = redoButton;
-    this.buttons.reset = resetButtons[0];
+    this.buttons.reset = resetButtons;
 
     // undo
-    undoButton.addEventListener('click', () => {
-      this.actions.undo();
+    undoButtons.forEach((el) => {
+      el.addEventListener('click', () => {
+        this.actions.undo();
+      });
     });
 
     // redo
@@ -195,7 +188,7 @@ export default class InputController {
     // Disable the undo and redo buttons as needed when the moves and movesCache
     // arrays change.
     store.moves.subscribe((moves) => {
-      undoButton.disabled = moves.length === 0;
+      undoButtons.forEach((btn) => (btn.disabled = moves.length === 0));
     });
     store.movesCache.subscribe((movesCache) => {
       redoButton.disabled = movesCache.length === 0;

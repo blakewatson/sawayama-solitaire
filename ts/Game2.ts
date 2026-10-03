@@ -114,6 +114,11 @@ export default class Game {
       });
 
       this.input.initDomUi();
+
+      if (this.checkForWin()) {
+        this.isGameOver = true;
+        this.view.showWinOverlay();
+      }
     });
 
     // this.deck = [];
@@ -194,7 +199,6 @@ export default class Game {
 
   checkForWin() {
     if (Boolean(this.deck.length || this.deckCell.count || this.bank.count)) {
-      console.log('not won: deck cell or bank has cards');
       return false;
     }
 
@@ -328,6 +332,7 @@ export default class Game {
       return;
     }
 
+    this.view.showWinOverlay();
     await this.animator.winAnimation(this.foundation);
   }
 
@@ -343,6 +348,18 @@ export default class Game {
 
   getCards(ids: string[]): Card[] {
     return ids.map((id) => this.getCardById(id));
+  }
+
+  getHandOriginObj() {
+    if (this.handOrigin === BANK_LABEL) {
+      return this.bank;
+    }
+
+    if (this.handOrigin === DECK_CELL_LABEL) {
+      return this.deckCell;
+    }
+
+    return this.board.find((cell) => cell.label === this.handOrigin);
   }
 
   getLocation(ref: BankLocationRef): Stack;
@@ -476,18 +493,6 @@ export default class Game {
     }
   }
 
-  getHandOriginObj() {
-    if (this.handOrigin === BANK_LABEL) {
-      return this.bank;
-    }
-
-    if (this.handOrigin === DECK_CELL_LABEL) {
-      return this.deckCell;
-    }
-
-    return this.board.find((cell) => cell.label === this.handOrigin);
-  }
-
   async moveAdd(move: GameMove, resetCache = true) {
     if (resetCache) {
       store.movesCache.value = [];
@@ -593,10 +598,7 @@ export default class Game {
   }
 
   async moveUndo() {
-    console.log('moveUndo');
     if (!store.moves.value.length || this.animator.isAnimating) {
-      console.log('store.moves.value.length', store.moves.value.length);
-      console.log('this.animator.isAnimating', this.animator.isAnimating);
       return;
     }
 
@@ -838,7 +840,6 @@ export default class Game {
 
     this.animator.resetWinAnimation();
     this.animator.cancelActiveAnimations();
-    console.log('Active animations cancelled.');
 
     // remove all cards from the game view and reset them
     this.cardsById.forEach((card) => {
@@ -863,6 +864,7 @@ export default class Game {
     this.deckCell.stack.removeChildren();
     this.board.forEach((cell) => cell.stack.removeChildren());
     this.foundation.forEach((tray) => tray.stack.removeChildren());
+    this.view.hideWinOverlay();
 
     if (useExistingGameState) {
       await this.initGameState();
@@ -962,7 +964,9 @@ export default class Game {
   }
 
   async undoGameOver() {
+    console.log('undoGameOver method');
     await this.tryReset(true);
+    this.view.hideWinOverlay();
     this.moveUndo();
   }
 
