@@ -1,4 +1,4 @@
-import { effect, Signal, signal } from '@preact/signals-core';
+import { Signal, signal } from '@preact/signals-core';
 import { Spritesheet } from 'pixi.js';
 import { BANK_LABEL, Suit } from './constants';
 import Hand from './entities/Hand';
@@ -151,7 +151,7 @@ export const store: IStore = {
 
     store.layout.VIEW_H =
       (store.layout.STACK_GAP + store.layout.CARD_H) * 4 +
-      store.layout.STACK_GAP * 3;
+      store.layout.STACK_GAP * 5;
 
     store.layout.FOUNDATION_H = store.layout.VIEW_H;
 
@@ -263,13 +263,13 @@ function logMoves(label: string, moves: GameMove[]) {
   console.groupEnd();
 }
 
-effect(() => {
-  logMoves('moves', store.moves.value);
-});
+// effect(() => {
+//   logMoves('moves', store.moves.value);
+// });
 
-effect(() => {
-  logMoves('movesCache', store.movesCache.value);
-});
+// effect(() => {
+//   logMoves('movesCache', store.movesCache.value);
+// });
 
 // @ts-ignore
 window.store = store;

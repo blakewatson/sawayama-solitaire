@@ -87,16 +87,9 @@ export default class ViewController {
     const bankH = store.layout.CARD_H;
 
     bankBgGraphic
-      .rect(0, 0, bankW, bankH)
+      .roundRect(0, 0, bankW, bankH, 10)
       .fill('#00000011')
-      .rect(0, 0, bankW, 2)
-      .fill('#00000033')
-      .rect(0, 2, 2, bankH)
-      .fill('#00000033')
-      .rect(bankW - 2, 2, 2, bankH - 4)
-      .fill('#ffffff10')
-      .rect(0, bankH - 2, bankW, 2)
-      .fill('#ffffff10');
+      .stroke({ width: 2, color: '#00000033' });
 
     bankBg.addChild(bankBgGraphic);
 

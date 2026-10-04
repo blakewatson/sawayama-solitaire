@@ -120,19 +120,6 @@ export default class Game {
         this.view.showWinOverlay();
       }
     });
-
-    // this.deck = [];
-    // this.resetDeckSprites();
-
-    // const cardA = new Card(Rank.Ace, Suit.Diamonds);
-    // this.board.at(0).addCard(cardA);
-
-    // const cardB = new Card(Rank.Two, Suit.Diamonds);
-    // this.board.at(1).addCard(cardB);
-
-    // this.checkForConditions();
-
-    // this.view.initDomUi();
   }
 
   buildCards() {
@@ -147,8 +134,12 @@ export default class Game {
   }
 
   async checkForConditions() {
-    await this.checkForFoundationCards();
+    const cardsWereMoved = await this.checkForFoundationCards();
     this.saveGameState();
+
+    if (cardsWereMoved) {
+      return;
+    }
 
     if (this.checkForWin()) {
       return this.gameOver();
@@ -163,12 +154,13 @@ export default class Game {
     // is the top bank card movable?
     if (shouldAutoMoveTopCard(this.bank, this.foundation)) {
       const card = this.bank.topCard;
-      this.moveAddAuto({
+      await this.moveAddAuto({
         type: MoveType.BANK_MOVE,
         cardIds: [card.label],
         from: { kind: 'bank' },
         to: { kind: 'foundation', suit: card.suit }
       });
+      return true;
     }
 
     // is the deck cell card movable?
@@ -180,6 +172,7 @@ export default class Game {
         from: { kind: 'deckCell' },
         to: { kind: 'foundation', suit: card.suit }
       });
+      return true;
     }
 
     // are any board cards movable?
@@ -192,7 +185,7 @@ export default class Game {
           from: this.getLocationRef(cell),
           to: { kind: 'foundation', suit: card.suit }
         });
-        break;
+        return true;
       }
     }
   }
@@ -964,7 +957,6 @@ export default class Game {
   }
 
   async undoGameOver() {
-    console.log('undoGameOver method');
     await this.tryReset(true);
     this.view.hideWinOverlay();
     this.moveUndo();

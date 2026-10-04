@@ -30,8 +30,10 @@ export default class Cell extends Container {
     this.label = label;
 
     if (useBackground) {
-      this.graphics.rect(0, 0, width, height);
-      this.graphics.fill('#00000022');
+      this.graphics
+        .roundRect(0, 0, width, height, 10)
+        .fill('#00000011')
+        .stroke({ width: 2, color: '#00000033' });
       this.graphics.x = 0;
       this.graphics.y = 0;
       this.graphics.width = width;
