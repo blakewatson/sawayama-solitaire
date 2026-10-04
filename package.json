@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "build": "npm run typecheck && esbuild ts/app.ts --outfile=js/app.js --bundle --minify",
     "watch": "esbuild ts/app.ts --outfile=js/app.js --bundle --servedir=. --serve",
     "typecheck": "tsc --noEmit --skipLibCheck",
     "typecheck:watch": "tsc --noEmit --skipLibCheck --watch --preserveWatchOutput",
