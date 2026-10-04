@@ -1,7 +1,7 @@
 import { Application, Assets, Color, Spritesheet, Texture } from 'pixi.js';
 import deckData from '../images/deckData.json';
 import { COLOR_BG } from './constants';
-import Game from './Game2';
+import Game from './Game';
 import { store } from './store';
 
 export interface IAssets {
