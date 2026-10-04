@@ -49,9 +49,9 @@ export default class Card extends Container {
 
     // drop shadow
     this.shadow = new DropShadowFilter({
-      alpha: 0.5,
+      alpha: store.isMobile ? 0.85 : 0.5,
       blur: 1,
-      offset: new Point(0, 1),
+      offset: new Point(0, 0),
       resolution: app.renderer.resolution
     });
 

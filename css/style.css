@@ -23,12 +23,16 @@ h1 {
   align-items: center;
   /* width: 980px; */
   /* height: 606px; */
-  /*aspect-ratio: 1800 / 1212;*/
+  aspect-ratio: 1800 / 1284;
   /* width: fit-content; */
   background: #505459;
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
+
+  &.mobile {
+    aspect-ratio: 980 / 1614;
+  }
 }
 
 #board canvas {

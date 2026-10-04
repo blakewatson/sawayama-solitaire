@@ -19,7 +19,6 @@ export default class ViewController {
   deckCell: Cell | null = null;
   deckSprites: Container | null = null;
   foundationBg: Graphics | null = null;
-  isMobile = false;
   mainScene: Container;
   mainSceneClickHandler: EventListener;
   winAnimationBackgroundLayer: Container | null;
@@ -146,10 +145,10 @@ export default class ViewController {
 
   initLayout() {
     if (window.matchMedia('(min-width: 550px)').matches) {
-      this.isMobile = false;
+      store.isMobile = false;
       return;
     } else {
-      this.isMobile = true;
+      store.isMobile = true;
       return;
     }
   }
@@ -179,7 +178,7 @@ export default class ViewController {
 
   positionFoundationTrays(foundation: FoundationCell[]) {
     const positionTray = (tray: FoundationCell, idx) => {
-      if (this.isMobile) {
+      if (store.isMobile) {
         tray.x =
           store.layout.VIEW_W -
           (store.layout.STACK_GAP + store.layout.CARD_W) * (idx + 1);

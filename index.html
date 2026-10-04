@@ -6,6 +6,7 @@
     <meta name="viewport" content="initial-scale=1, width=device-width" />
     <title>Solitaire (Sawayama Rules)</title>
     <link rel="stylesheet" href="css/style.css" />
+
     <script defer src="js/app.js"></script>
   </head>
 
@@ -96,5 +97,11 @@
         >.
       </p>
     </div>
+
+    <script>
+      if (!window.matchMedia('(min-width: 550px)').matches) {
+        document.querySelector('#board').classList.add('mobile');
+      }
+    </script>
   </body>
 </html>

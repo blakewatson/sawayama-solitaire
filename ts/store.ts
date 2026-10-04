@@ -78,6 +78,7 @@ export interface GameState {
 interface IStore {
   gameState: GameState | null;
   hand: Hand | null;
+  isMobile: boolean;
   layout: {
     BANK_POS: { x: number; y: number };
     BANK_W: number;
@@ -107,6 +108,7 @@ interface IStore {
 export const store: IStore = {
   gameState: null,
   hand: null,
+  isMobile: false,
   layout: {
     BANK_POS: { x: 0, y: 0 },
     BANK_W: 0,
@@ -181,7 +183,7 @@ export const store: IStore = {
   makeMobileLayout() {
     store.layout.CARD_W = 50;
     store.layout.CARD_H = Math.round(store.layout.CARD_W * 1.33333333);
-    store.layout.CARD_OFFSET_VERTICAL = store.layout.CARD_H / 3;
+    store.layout.CARD_OFFSET_VERTICAL = store.layout.CARD_H / 2;
     store.layout.CARD_OFFSET_HORIZONTAL = store.layout.CARD_W / 2.75;
     store.layout.STACK_GAP = 10;
 
@@ -228,7 +230,8 @@ export const store: IStore = {
       store.layout.STACK_GAP +
       store.layout.CARD_H +
       store.layout.STACK_GAP +
-      store.layout.CARD_H * 5;
+      store.layout.CARD_H * 9 +
+      store.layout.STACK_GAP * 3;
   }
 };
 

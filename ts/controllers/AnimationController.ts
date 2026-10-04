@@ -63,7 +63,7 @@ export default class AnimationController {
   }
 
   get isMobile() {
-    return this.view.isMobile;
+    return store.isMobile;
   }
 
   private addTrailSprite(
@@ -730,7 +730,7 @@ export default class AnimationController {
         card.addShadow();
         // card.addGlow();
 
-        if (this.view.isMobile) {
+        if (store.isMobile) {
           card.velocityX = rand(0.5, 2) * -1;
           card.velocityY = rand(1.5, 3);
           card.gravity = rand(0.05, 0.15);
