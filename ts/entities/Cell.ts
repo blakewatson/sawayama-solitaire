@@ -32,8 +32,8 @@ export default class Cell extends Container {
     if (useBackground) {
       this.graphics
         .roundRect(0, 0, width, height, 10)
-        .fill('#00000011')
-        .stroke({ width: 2, color: '#00000033' });
+        .fill('#00000022')
+        .stroke({ width: 2, color: '#00000044' });
       this.graphics.x = 0;
       this.graphics.y = 0;
       this.graphics.width = width;

@@ -87,8 +87,8 @@ export default class ViewController {
 
     bankBgGraphic
       .roundRect(0, 0, bankW, bankH, 10)
-      .fill('#00000011')
-      .stroke({ width: 2, color: '#00000033' });
+      .fill('#00000022')
+      .stroke({ width: 2, color: '#00000044' });
 
     bankBg.addChild(bankBgGraphic);
 

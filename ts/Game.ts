@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Ticker } from 'pixi.js';
+import { Application, Container, Graphics } from 'pixi.js';
 import {
   BANK_LABEL,
   BOARD_CELL_LABEL,
@@ -98,9 +98,6 @@ export default class Game {
 
     // the win animation layers go last
     this.view.initWinAnimationLayers();
-
-    // start ticker
-    Ticker.shared.add(this.update, this);
 
     // start a new game or saved one
     this.initGameState().finally(() => {
@@ -960,12 +957,5 @@ export default class Game {
     await this.tryReset(true);
     this.view.hideWinOverlay();
     this.moveUndo();
-  }
-
-  update(ticker: Ticker) {
-    if (true) {
-      store.hand.x = store.mousePosition[0];
-      store.hand.y = store.mousePosition[1];
-    }
   }
 }
