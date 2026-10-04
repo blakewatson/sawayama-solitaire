@@ -1,8 +1,21 @@
+@import url('spacing.css');
+
+/* apply a natural box layout model to all elements, but allowing components to change */
+html {
+  box-sizing: border-box;
+}
+*,
+*:before,
+*:after {
+  box-sizing: inherit;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, avenir next, avenir, segoe ui,
     helvetica neue, helvetica, Cantarell, Ubuntu, roboto, noto, arial,
     sans-serif;
   text-align: center;
+  color-scheme: dark;
   background-color: #1f1f21;
   color: #b4b4c0;
 }
@@ -19,6 +32,11 @@ h1 {
 
 h2 {
   font-size: 20px;
+}
+
+h3 {
+  font-size: 18px;
+  font-weight: normal;
 }
 
 #board {
@@ -124,6 +142,26 @@ h2 {
 
 a {
   color: whitesmoke;
+}
+
+.settings {
+  max-width: 500px;
+  border: 1px solid #999;
+  border-radius: 8px;
+  background: #2a2a2c;
+  text-align: left;
+}
+
+.palette {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.palette label {
+  flex-basis: 150px;
+  padding: 0.5rem;
+  font-size: 15px;
+  text-align: left;
 }
 
 .loader {

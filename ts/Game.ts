@@ -10,6 +10,7 @@ import {
 } from './constants';
 import AnimationController from './controllers/AnimationController';
 import InputController, { InputState } from './controllers/InputController';
+import SettingsController from './controllers/SettingsController';
 import ViewController from './controllers/ViewController';
 import Card from './entities/Card';
 import Cell from './entities/Cell';
@@ -58,6 +59,7 @@ export default class Game {
   handOrigin = '';
   input: InputController | null = null;
   isGameOver = false;
+  settings: SettingsController | null = null;
   view: ViewController | null = null;
 
   constructor(app: Application) {
@@ -71,6 +73,9 @@ export default class Game {
 
     // set up the main container
     this.view = new ViewController(this.app);
+
+    // set up settings controller
+    this.settings = new SettingsController(this.app);
 
     // set up the animator
     this.animator = new AnimationController(this.view);
@@ -105,6 +110,7 @@ export default class Game {
       this.input = new InputController(this.view, {
         redo: this.tryRedo.bind(this),
         reset: this.tryReset.bind(this),
+        showSettings: this.settings.openDialog.bind(this.settings),
         tryRelease: this.tryRelease.bind(this),
         trySelect: this.trySelect.bind(this),
         undo: this.tryUndo.bind(this)

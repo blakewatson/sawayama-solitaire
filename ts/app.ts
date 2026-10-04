@@ -1,4 +1,4 @@
-import { Application, Assets, Color, Spritesheet, Texture } from 'pixi.js';
+import { Application, Assets, Spritesheet, Texture } from 'pixi.js';
 import deckData from '../images/deckData.json';
 import { COLOR_BG } from './constants';
 import Game from './Game';
@@ -36,7 +36,7 @@ async function init() {
     width: store.layout.VIEW_W,
     height: store.layout.VIEW_H,
     resolution: window.devicePixelRatio || 1,
-    backgroundColor: new Color(COLOR_BG).toNumber()
+    backgroundColor: COLOR_BG
   });
 
   game = new Game(app);

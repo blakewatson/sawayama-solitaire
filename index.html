@@ -24,6 +24,7 @@
         <button type="button" data-undo disabled>Undo</button>
         <button type="button" data-redo disabled>Redo</button>
         <button type="button" data-reset disabled>Reset</button>
+        <button type="button" data-settings disabled>Settings</button>
       </div>
 
       <div class="game-over">
@@ -99,6 +100,22 @@
         >.
       </p>
     </div>
+
+    <dialog class="settings" data-settings-dialog>
+      <h2 class="mt-none mb-md">Settings</h2>
+
+      <h3 class="mt-none mb-xs">Table color</h3>
+      <div class="palette" data-palette></div>
+
+      <button
+        class="mt-md"
+        data-close-settings
+        style="display: block"
+        type="button"
+      >
+        Done
+      </button>
+    </dialog>
 
     <script>
       if (!window.matchMedia('(min-width: 550px)').matches) {

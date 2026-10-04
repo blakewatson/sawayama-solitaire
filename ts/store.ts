@@ -75,6 +75,10 @@ export interface GameState {
   movesCache: GameMove[];
 }
 
+export interface Settings {
+  backgroundColor: Signal<string>;
+}
+
 interface IStore {
   gameState: GameState | null;
   hand: Hand | null;
@@ -100,6 +104,7 @@ interface IStore {
   mousePosition: [number, number];
   moves: Signal<GameMove[]>;
   movesCache: Signal<GameMove[]>;
+  settings: Settings;
   spritesheet: Spritesheet | null;
 }
 
@@ -129,6 +134,9 @@ export const store: IStore = {
   mousePosition: [0, 0],
   moves: signal([]),
   movesCache: signal([]),
+  settings: {
+    backgroundColor: signal('#505459')
+  },
   spritesheet: null,
 
   makeDesktopLayout() {

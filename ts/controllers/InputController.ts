@@ -14,6 +14,7 @@ export enum InputState {
 export interface InputActions {
   redo: () => void;
   reset: () => void;
+  showSettings: () => void;
   tryRelease: (obj: Card | Cell | Container) => void;
   trySelect: (obj: Card | Cell | Container) => void;
   undo: () => void;
@@ -21,15 +22,7 @@ export interface InputActions {
 
 export default class InputController {
   actions: InputActions | null = null;
-  buttons: {
-    undo: HTMLButtonElement[];
-    redo: HTMLButtonElement | null;
-    reset: HTMLButtonElement[];
-  } = {
-    undo: [],
-    redo: null,
-    reset: []
-  };
+  buttons: HTMLButtonElement[] = [];
   currentState = InputState.IDLE;
   lastPressedPosition: [number, number] = [0, 0];
   view: ViewController | null = null;
@@ -41,13 +34,11 @@ export default class InputController {
   }
 
   disableUndoRedo() {
-    if (this.buttons.undo.length) {
-      this.buttons.undo.forEach((btn) => (btn.disabled = true));
-    }
-
-    if (this.buttons.redo) {
-      this.buttons.redo.disabled = true;
-    }
+    this.buttons.forEach((btn) => {
+      if ('undo' in btn.dataset || 'redo' in btn.dataset) {
+        btn.disabled = true;
+      }
+    });
   }
 
   getHandIntersection(): Container<ContainerChild> | null {
@@ -151,47 +142,53 @@ export default class InputController {
     // show the row of buttons
     document.querySelector('.buttons').removeAttribute('hidden');
 
-    const undoButtons = Array.from(
-      document.querySelectorAll('[data-undo]')
-    ) as HTMLButtonElement[];
-    const redoButton = document.querySelector(
-      '[data-redo]'
-    ) as HTMLButtonElement;
-    const resetButtons = Array.from(
-      document.querySelectorAll('[data-reset]')
-    ) as HTMLButtonElement[];
+    this.buttons = Array.from(document.querySelectorAll('button'));
 
-    this.buttons.undo = undoButtons;
-    this.buttons.redo = redoButton;
-    this.buttons.reset = resetButtons;
+    this.buttons.forEach((btn) => {
+      if ('undo' in btn.dataset) {
+        btn.addEventListener('click', () => {
+          this.actions.undo();
+        });
+      }
 
-    // undo
-    undoButtons.forEach((el) => {
-      el.addEventListener('click', () => {
-        this.actions.undo();
-      });
-    });
+      if ('redo' in btn.dataset) {
+        btn.addEventListener('click', () => {
+          this.actions.redo();
+        });
+      }
 
-    // redo
-    redoButton.addEventListener('click', () => {
-      this.actions.redo();
-    });
+      if ('reset' in btn.dataset) {
+        btn.addEventListener('click', () => {
+          this.actions.reset();
+        });
 
-    // reset
-    resetButtons.forEach((el) => {
-      el.addEventListener('click', () => {
-        this.actions.reset();
-      });
-      el.removeAttribute('disabled');
+        btn.removeAttribute('disabled');
+      }
+
+      if ('settings' in btn.dataset) {
+        btn.addEventListener('click', () => {
+          this.actions.showSettings();
+        });
+        btn.disabled = false;
+      }
     });
 
     // Disable the undo and redo buttons as needed when the moves and movesCache
     // arrays change.
     store.moves.subscribe((moves) => {
-      undoButtons.forEach((btn) => (btn.disabled = moves.length === 0));
+      this.buttons.forEach((btn) => {
+        if ('undo' in btn.dataset) {
+          btn.disabled = moves.length === 0;
+        }
+      });
     });
+
     store.movesCache.subscribe((movesCache) => {
-      redoButton.disabled = movesCache.length === 0;
+      this.buttons.forEach((btn) => {
+        if ('redo' in btn.dataset) {
+          btn.disabled = movesCache.length === 0;
+        }
+      });
     });
   }
 }
