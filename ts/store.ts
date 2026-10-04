@@ -77,6 +77,7 @@ export interface GameState {
 
 export interface Settings {
   backgroundColor: Signal<string>;
+  cardBack: Signal<string>;
 }
 
 interface IStore {
@@ -135,7 +136,8 @@ export const store: IStore = {
   moves: signal([]),
   movesCache: signal([]),
   settings: {
-    backgroundColor: signal('#505459')
+    backgroundColor: signal('#505459'),
+    cardBack: signal('back_red')
   },
   spritesheet: null,
 

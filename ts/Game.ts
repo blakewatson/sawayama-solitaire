@@ -75,7 +75,7 @@ export default class Game {
     this.view = new ViewController(this.app);
 
     // set up settings controller
-    this.settings = new SettingsController(this.app);
+    this.settings = new SettingsController(this.app, this.view);
 
     // set up the animator
     this.animator = new AnimationController(this.view);

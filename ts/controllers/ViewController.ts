@@ -39,7 +39,9 @@ export default class ViewController {
     const cardSprites = [];
 
     for (let i = 0; i < count; i++) {
-      const sprite = new Sprite(store.spritesheet.textures['back_red']);
+      const sprite = new Sprite(
+        store.spritesheet.textures[store.settings.cardBack.value]
+      );
       sprite.width = store.layout.CARD_W;
       sprite.height = store.layout.CARD_H;
       sprite.x = 0;
@@ -198,6 +200,17 @@ export default class ViewController {
 
   removeChild(...children: Container[]) {
     this.mainScene.removeChild(...children);
+  }
+
+  setCardBack(back: string) {
+    if (!this.deckSprites) {
+      return;
+    }
+
+    this.deckSprites.children.forEach((container) => {
+      (container.children[0] as Sprite).texture =
+        store.spritesheet.textures[back];
+    });
   }
 
   showWinOverlay() {

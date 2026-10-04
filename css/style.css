@@ -152,6 +152,11 @@ a {
   text-align: left;
 }
 
+label:has(input[type='radio']) {
+  display: flex;
+  gap: 8px;
+}
+
 .palette {
   display: flex;
   flex-wrap: wrap;
@@ -162,6 +167,11 @@ a {
   padding: 0.5rem;
   font-size: 15px;
   text-align: left;
+}
+
+.card-back {
+  display: flex;
+  gap: 1rem;
 }
 
 .loader {
