@@ -22,6 +22,7 @@ export interface InputActions {
 
 export default class InputController {
   actions: InputActions | null = null;
+  activePointerId: number | null = null;
   buttons: HTMLButtonElement[] = [];
   currentState = InputState.IDLE;
   lastPressedPosition: [number, number] = [0, 0];
@@ -94,6 +95,8 @@ export default class InputController {
 
       store.hand.position.set(...store.mousePosition);
 
+      this.activePointerId = event.pointerId;
+
       this.currentState = InputState.PRESSED;
 
       this.view.app.render();
@@ -114,10 +117,16 @@ export default class InputController {
     });
 
     this.view.mainScene.addEventListener('pointerup', (event) => {
+      if (this.activePointerId !== event.pointerId) {
+        return;
+      }
+
+      this.activePointerId = null;
+
       if (this.currentState === InputState.PRESSED) {
         this.currentState = InputState.IDLE;
 
-        if (event.pointerType !== 'mouse') {
+        if (event.pointerType === 'touch') {
           const obj = this.getHandIntersection();
           this.actions.tryRelease(obj);
         }
