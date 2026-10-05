@@ -214,6 +214,11 @@ export default class ViewController {
   }
 
   showWinOverlay() {
+    const moveCount = store.moves.value.length;
+    const moveCountEl = document.querySelector('.game-over [data-move-count]');
+    if (moveCountEl) {
+      moveCountEl.textContent = `Moves: ${moveCount}`;
+    }
     document.querySelector('.game-over').classList.add('active');
   }
 }
