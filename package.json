@@ -19,7 +19,6 @@
     "esbuild": "0.17.14",
     "pixi-filters": "^6.1.5",
     "pixi.js": "^8.20.1",
-    "pubsub-js": "^1.9.4",
     "typescript": "^5.9.3"
   },
   "devDependencies": {
