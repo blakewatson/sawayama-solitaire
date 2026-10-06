@@ -735,7 +735,7 @@ export default class Game {
 
     const cell = getCellFromCard(card);
 
-    if (!cell) {
+    if (!cell || cell instanceof FoundationCell) {
       return;
     }
 
@@ -921,7 +921,9 @@ export default class Game {
 
   async undoCellMove(move: CellMove) {
     if (move.to.kind === 'foundation') {
-      this.getCardById(move.cardIds[0]).eventMode = 'static';
+      const card = this.getCardById(move.cardIds[0]);
+      card.eventMode = 'static';
+      card.addShadow();
     }
     const fromLocation = this.getLocation(move.from);
     const toLocation = this.getLocation(move.to);
