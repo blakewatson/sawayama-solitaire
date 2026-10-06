@@ -117,6 +117,7 @@ export default class Game {
       });
 
       this.input.initDomUi();
+      this.input.clicksDisabled = false;
 
       if (this.checkForWin()) {
         this.isGameOver = true;
@@ -227,7 +228,11 @@ export default class Game {
     let col = 0;
 
     for (let count = 0; count < 28; count++) {
-      await this.dealNextCard(col);
+      const card = await this.dealNextCard(col);
+
+      if (!card) {
+        return false;
+      }
 
       // go to the next cell
       col++;
@@ -238,6 +243,8 @@ export default class Game {
         col = rowStartsAtCol;
       }
     }
+
+    return true;
   }
 
   dealNextCard(col = 0) {
@@ -833,6 +840,8 @@ export default class Game {
 
   async tryReset(useExistingGameState = false) {
     this.isGameOver = false;
+    this.input.clicksDisabled = true;
+    console.log('clicks disabled');
 
     this.animator.resetWinAnimation();
     this.animator.cancelActiveAnimations();
@@ -864,6 +873,7 @@ export default class Game {
 
     if (useExistingGameState) {
       await this.initGameState();
+      this.input.clicksDisabled = false;
       return;
     }
 
@@ -872,9 +882,16 @@ export default class Game {
 
     store.moves.value = [];
     store.movesCache.value = [];
-    await this.dealCards();
+    const dealt = await this.dealCards();
+
+    if (!dealt) {
+      return;
+    }
+
     await this.checkForConditions();
     this.saveGameState();
+    this.input.clicksDisabled = false;
+    console.log('clicks enabled');
   }
 
   async trySelect(obj: Card | Cell | Container) {

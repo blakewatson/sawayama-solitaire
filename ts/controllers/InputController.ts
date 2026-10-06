@@ -23,6 +23,7 @@ export interface InputActions {
 export default class InputController {
   actions: InputActions | null = null;
   activePointerId: number | null = null;
+  clicksDisabled = true;
   buttons: HTMLButtonElement[] = [];
   currentState = InputState.IDLE;
   lastPressedPosition: [number, number] = [0, 0];
@@ -86,6 +87,10 @@ export default class InputController {
     });
 
     this.view.mainScene.addEventListener('pointerdown', (event) => {
+      if (this.clicksDisabled) {
+        return;
+      }
+
       store.mousePosition = [
         Math.round(event.globalX),
         Math.round(event.globalY)
@@ -117,6 +122,10 @@ export default class InputController {
     });
 
     this.view.mainScene.addEventListener('pointerup', (event) => {
+      if (this.clicksDisabled) {
+        return;
+      }
+
       if (this.activePointerId !== event.pointerId) {
         return;
       }
