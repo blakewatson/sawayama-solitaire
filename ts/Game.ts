@@ -932,6 +932,10 @@ export default class Game {
   }
 
   async undoBankMove(move: BankMove) {
+    if (move.to.kind === 'foundation') {
+      const card = this.getCardById(move.cardIds[0]);
+      card.addShadow();
+    }
     const target = this.getLocation(move.to);
     await this.animator.cellToBank(this.bank, target);
     this.refreshBank();
