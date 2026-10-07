@@ -108,6 +108,7 @@ export default class Game {
     this.initGameState().finally(() => {
       // Turn on the input controller.
       this.input = new InputController(this.view, {
+        hideWinOverlay: this.view.hideWinOverlay.bind(this.view),
         redo: this.tryRedo.bind(this),
         reset: this.tryReset.bind(this),
         showSettings: this.settings.openDialog.bind(this.settings),

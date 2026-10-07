@@ -12,6 +12,7 @@ export enum InputState {
 }
 
 export interface InputActions {
+  hideWinOverlay: () => void;
   redo: () => void;
   reset: () => void;
   showSettings: () => void;
@@ -188,6 +189,12 @@ export default class InputController {
           this.actions.showSettings();
         });
         btn.disabled = false;
+      }
+
+      if ('closeWinScreen' in btn.dataset) {
+        btn.addEventListener('click', () => {
+          this.actions.hideWinOverlay();
+        });
       }
     });
 

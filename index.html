@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="css/style.css?v2-1" />
     <link rel="icon" href="images/favicon.svg" type="image/svg+xml" />
 
-    <script defer src="js/app.js?v2-2"></script>
+    <script defer src="js/app.js?v2-3"></script>
   </head>
 
   <body>
@@ -31,7 +31,10 @@
         <h2 class="mb-none">You win!</h2>
         <p class="mt-none mb-lg" data-move-count></p>
         <button class="big-button" type="button" data-reset>Play Again</button>
-        <button type="button" data-undo>Undo last move</button>
+        <div style="display: flex; align-self: center; gap: 1rem">
+          <button type="button" data-undo>Undo last move</button>
+          <button type="button" data-close-win-screen>Close</button>
+        </div>
       </div>
     </div>
 
