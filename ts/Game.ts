@@ -104,10 +104,14 @@ export default class Game {
     // the win animation layers go last
     this.view.initWinAnimationLayers();
 
+    // read the game state from the URL if present
+    this.readUrl();
+
     // start a new game or saved one
     this.initGameState().finally(() => {
       // Turn on the input controller.
       this.input = new InputController(this.view, {
+        copyGameState: this.copyGameState.bind(this),
         hideWinOverlay: this.view.hideWinOverlay.bind(this.view),
         redo: this.tryRedo.bind(this),
         reset: this.tryReset.bind(this),
@@ -201,6 +205,24 @@ export default class Game {
     }
 
     return this.board.every((cell) => cell.isSequential || !cell.count);
+  }
+
+  copyGameState() {
+    const gameState = localStorage.getItem('gameState');
+
+    if (!gameState) {
+      return;
+    }
+
+    const data = btoa(gameState);
+    const url = `${window.location.origin}${window.location.pathname}?game=${data}`;
+
+    navigator.clipboard.writeText(url).then(() => {
+      document.querySelector('[data-share]').textContent = 'Copied!';
+      setTimeout(() => {
+        document.querySelector('[data-share]').textContent = 'Share';
+      }, 2000);
+    });
   }
 
   createBoard() {
@@ -622,6 +644,27 @@ export default class Game {
     }
 
     this.saveGameState();
+  }
+
+  readUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const gameParam = urlParams.get('game');
+
+    if (!gameParam) {
+      return;
+    }
+
+    const decoded = atob(gameParam);
+
+    // test that it parses as JSON
+    try {
+      JSON.parse(decoded);
+    } catch (e) {
+      console.error('Invalid game state in URL.');
+      return;
+    }
+
+    localStorage.setItem('gameState', decoded);
   }
 
   async redoBankMove(move: BankMove) {

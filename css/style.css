@@ -84,7 +84,27 @@ h3 {
 }
 
 .buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   margin-top: 0.5rem;
+}
+
+.undo-redo {
+  display: flex;
+  gap: 0;
+}
+
+.undo {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: 1px solid #999;
+}
+
+.redo {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
 }
 
 @media (min-width: 550px) {
@@ -92,8 +112,6 @@ h3 {
     position: absolute;
     top: 6px;
     right: 20px;
-    display: flex;
-    gap: 1rem;
     margin-top: 0;
   }
 }

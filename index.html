@@ -5,10 +5,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="initial-scale=1, width=device-width" />
     <title>Solitaire (Sawayama Rules)</title>
-    <link rel="stylesheet" href="css/style.css?v2-2" />
+    <link rel="stylesheet" href="css/style.css?v2-3" />
     <link rel="icon" href="images/favicon.svg" type="image/svg+xml" />
 
-    <script defer src="js/app.js?v2-3"></script>
+    <script defer src="js/app.js?v2-4"></script>
   </head>
 
   <body>
@@ -21,9 +21,12 @@
       <div id="board"><span class="loader"></span></div>
 
       <div class="buttons" hidden>
-        <button type="button" data-undo disabled>Undo</button>
-        <button type="button" data-redo disabled>Redo</button>
+        <div class="undo-redo">
+          <button type="button" class="undo" data-undo disabled>Undo</button>
+          <button type="button" class="redo" data-redo disabled>Redo</button>
+        </div>
         <button type="button" data-reset disabled>Reset</button>
+        <button type="button" data-share>Share</button>
         <button type="button" data-settings disabled>Settings</button>
       </div>
 

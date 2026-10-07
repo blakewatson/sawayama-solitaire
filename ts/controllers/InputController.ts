@@ -12,6 +12,7 @@ export enum InputState {
 }
 
 export interface InputActions {
+  copyGameState: () => void;
   hideWinOverlay: () => void;
   redo: () => void;
   reset: () => void;
@@ -182,6 +183,12 @@ export default class InputController {
         });
 
         btn.removeAttribute('disabled');
+      }
+
+      if ('share' in btn.dataset) {
+        btn.addEventListener('click', () => {
+          this.actions.copyGameState();
+        });
       }
 
       if ('settings' in btn.dataset) {
