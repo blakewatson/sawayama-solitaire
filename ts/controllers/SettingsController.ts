@@ -27,6 +27,9 @@ export default class SettingsController {
     ['#3b2e36', 'Tuatara'],
     ['#2e2f3b', 'Black rock'],
     ['#694040', 'Deep coffee'],
+    ['#bd8fa9', 'Opera mauve'],
+    ['#947fb5', 'Lavender'],
+    ['#8fb4bd', 'Nepal'],
     ['#adaab3', 'Chatelle'],
     ['#b3b0aa', 'Bombay'],
     ['#377d21', 'WinXP']
@@ -64,7 +67,11 @@ export default class SettingsController {
       label.textContent = color[1];
       label.style.backgroundColor = color[0];
 
-      if (['Chatelle', 'Bombay'].includes(color[1])) {
+      if (
+        ['Chatelle', 'Bombay', 'Opera mauve', 'Nepal', 'Lavender'].includes(
+          color[1]
+        )
+      ) {
         label.style.color = 'Black';
       }
 
