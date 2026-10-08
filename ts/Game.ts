@@ -653,8 +653,6 @@ export default class Game {
       ? window.location.hash.split(':')[1]
       : null;
 
-    console.log('gameParam', gameParam);
-
     if (!gameParam) {
       return;
     }
