@@ -41,7 +41,9 @@ import {
   shouldAutoMoveTopCard,
   shuffleCards,
   signalPop,
-  signalPush
+  signalPush,
+  smushGameState,
+  unsmushGameState
 } from './utils';
 
 export default class Game {
@@ -208,14 +210,14 @@ export default class Game {
   }
 
   copyGameState() {
-    const gameState = localStorage.getItem('gameState');
+    const gameState = this.getGameStateObject();
 
     if (!gameState) {
       return;
     }
 
-    const data = btoa(gameState);
-    const url = `${window.location.origin}${window.location.pathname}?game=${data}`;
+    const data = btoa(JSON.stringify(smushGameState(gameState)));
+    const url = `${window.location.origin}${window.location.pathname}#game:${data}`;
 
     navigator.clipboard.writeText(url).then(() => {
       document.querySelector('[data-share]').textContent = 'Copied!';
@@ -647,8 +649,11 @@ export default class Game {
   }
 
   readUrl() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const gameParam = urlParams.get('game');
+    const gameParam = window.location.hash.includes('game:')
+      ? window.location.hash.split(':')[1]
+      : null;
+
+    console.log('gameParam', gameParam);
 
     if (!gameParam) {
       return;
@@ -658,13 +663,17 @@ export default class Game {
 
     // test that it parses as JSON
     try {
-      JSON.parse(decoded);
+      var parsed = JSON.parse(decoded);
     } catch (e) {
       console.error('Invalid game state in URL.');
       return;
     }
 
-    localStorage.setItem('gameState', decoded);
+    const unsmushed = unsmushGameState(parsed);
+
+    const gameStateJson = JSON.stringify(unsmushed);
+
+    localStorage.setItem('gameState', gameStateJson);
   }
 
   async redoBankMove(move: BankMove) {
@@ -737,7 +746,7 @@ export default class Game {
     }
   }
 
-  saveGameState() {
+  getGameStateObject(): GameState {
     const clubs = this.foundation.find((c) => c.suit === Suit.Clubs);
     const diamonds = this.foundation.find((c) => c.suit === Suit.Diamonds);
     const hearts = this.foundation.find((c) => c.suit === Suit.Hearts);
@@ -759,7 +768,11 @@ export default class Game {
       moves: store.moves.value,
       movesCache: store.movesCache.value
     };
+    return game;
+  }
 
+  saveGameState() {
+    const game = this.getGameStateObject();
     localStorage.setItem('gameState', JSON.stringify(game));
   }
 

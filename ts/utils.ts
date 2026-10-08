@@ -12,6 +12,7 @@ import Card from './entities/Card';
 import Cell from './entities/Cell';
 import FoundationCell from './entities/FoundationCell';
 import Stack from './entities/Stack';
+import { GameMove, GameState, LocationRef, MoveType } from './store';
 
 export const cardsAreSequential = (cards: Card[]) => {
   if (cards.length < 2) {
@@ -207,3 +208,142 @@ export function shuffleCards(cards: Card[]): Card[] {
 
 export const stackIsSequential = (stack: Container<Card>): boolean =>
   cardsAreSequential(stack.children);
+
+// State compression
+
+export const smushCardId = (id: string) => id.substring(0, id.indexOf('_') + 2);
+export const smushCardIds = (ids: string[]) => ids.map(smushCardId);
+
+type SuitCode = 'c' | 'd' | 'h' | 's';
+
+type SmushedLocationRef = `b${number}` | `f${SuitCode}` | 'd' | 'k';
+
+type SmushedBankLocationRef = 'k';
+
+type SmushedNonBankLocationRef = Exclude<SmushedLocationRef, 'k'>;
+
+type GameMoveSmushed =
+  | ['d', string[]]
+  | ['b', string[], SmushedBankLocationRef, SmushedNonBankLocationRef]
+  | ['c', string[], SmushedNonBankLocationRef, SmushedNonBankLocationRef];
+
+export const smushLocationRef = (ref: LocationRef): SmushedLocationRef => {
+  switch (ref.kind) {
+    case 'bank':
+      return 'k';
+    case 'deckCell':
+      return 'd';
+    case 'board':
+      return `b${ref.index}`;
+    case 'foundation':
+      return `f${ref.suit[0]}` as SmushedLocationRef;
+  }
+};
+
+export const unsmushLocationRef = (ref: SmushedLocationRef): LocationRef => {
+  if (ref === 'k') {
+    return { kind: 'bank' };
+  }
+
+  if (ref === 'd') {
+    return { kind: 'deckCell' };
+  }
+
+  if (ref.startsWith('b')) {
+    const index = parseInt(ref.substring(1));
+    return { kind: 'board', index };
+  }
+
+  if (ref.startsWith('f')) {
+    const suitCode = ref[1] as SuitCode;
+    const suitMap: Record<SuitCode, Suit> = {
+      c: Suit.Clubs,
+      d: Suit.Diamonds,
+      h: Suit.Hearts,
+      s: Suit.Spades
+    };
+    return { kind: 'foundation', suit: suitMap[suitCode] };
+  }
+};
+
+export const smushMoves = (moves: GameMove[]) =>
+  moves.map((move): GameMoveSmushed => {
+    if (move.type === MoveType.DECK_DRAW) {
+      return ['d', smushCardIds(move.cardIds)];
+    }
+
+    return [
+      move.type === MoveType.BANK_MOVE ? 'b' : 'c',
+      smushCardIds(move.cardIds),
+      smushLocationRef(move.from),
+      smushLocationRef(move.to)
+    ] as GameMoveSmushed;
+  });
+
+export const smushGameState = (state: GameState) => ({
+  bank: smushCardIds(state.bank),
+  board: state.board.map((row) => smushCardIds(row)),
+  deck: smushCardIds(state.deck),
+  deckCell: smushCardId(state.deckCell),
+  foundation: {
+    [Suit.Clubs]: smushCardIds(state.foundation[Suit.Clubs]),
+    [Suit.Diamonds]: smushCardIds(state.foundation[Suit.Diamonds]),
+    [Suit.Hearts]: smushCardIds(state.foundation[Suit.Hearts]),
+    [Suit.Spades]: smushCardIds(state.foundation[Suit.Spades])
+  },
+  moves: smushMoves(state.moves),
+  movesCache: smushMoves(state.movesCache)
+});
+
+export const unsmushCardId = (id: string) => {
+  const end = id.slice(-2);
+  const rank = id.replace(end, '');
+
+  switch (end) {
+    case '_c':
+      return `${rank}_clubs`;
+    case '_d':
+      return `${rank}_diamonds`;
+    case '_h':
+      return `${rank}_hearts`;
+    case '_s':
+      return `${rank}_spades`;
+  }
+};
+
+export const unsmushCardIds = (ids: string[]) => ids.map(unsmushCardId);
+
+export const unsmushMove = (move: GameMoveSmushed): GameMove => {
+  const cardIds = unsmushCardIds(move[1]);
+
+  if (move[0] === 'd') {
+    return { type: MoveType.DECK_DRAW, cardIds };
+  }
+
+  return {
+    type: move[0] === 'b' ? MoveType.BANK_MOVE : MoveType.CELL_MOVE,
+    cardIds,
+    from: unsmushLocationRef(move[2]),
+    to: unsmushLocationRef(move[3])
+  } as GameMove; // because life is too short
+};
+
+export const unsmushMoves = (moves: GameMoveSmushed[]): GameMove[] =>
+  moves.map(unsmushMove);
+
+export const unsmushGameState = (
+  state: ReturnType<typeof smushGameState>
+): GameState => ({
+  bank: unsmushCardIds(state.bank),
+  board: state.board.map((row) => unsmushCardIds(row)),
+  deck: unsmushCardIds(state.deck),
+  deckCell: unsmushCardId(state.deckCell),
+  foundation: {
+    [Suit.Clubs]: unsmushCardIds(state.foundation[Suit.Clubs]),
+    [Suit.Diamonds]: unsmushCardIds(state.foundation[Suit.Diamonds]),
+    [Suit.Hearts]: unsmushCardIds(state.foundation[Suit.Hearts]),
+    [Suit.Spades]: unsmushCardIds(state.foundation[Suit.Spades])
+  },
+  moves: unsmushMoves(state.moves),
+  movesCache: unsmushMoves(state.movesCache)
+});
