@@ -44,6 +44,6 @@ npm run build
 
 - Game developed by [Blake Watson](https://blakewatson.com/)
 - Sawayama Solitaire rules by [Zachtronics](https://www.zachtronics.com/solitaire-collection/)
-- Card graphics from <https://github.com/deck-of-cards/standard-deck>
-- (From standard-deck) Royals modified from: <https://commons.wikimedia.org/wiki/Category:SVG_English_pattern_playing_cards#/media/File:English_pattern_playing_cards_deck.svg>
-- (From standard-deck) Suit icons are from Font Awesome Pro ([license](https://fontawesome.com/#pro-license-explained))
+- Card graphics by [Blake Watson](https://blakewatson.com/). Card font [Clauthbound](https://simplebits.shop/products/clauthbound) from [SimpleBits](https://simplebits.shop/products/clauthbound)
+- Royals modified from: <https://commons.wikimedia.org/wiki/Category:SVG_English_pattern_playing_cards#/media/File:English_pattern_playing_cards_deck.svg>
+- Tabletop color palette from [Moss128](https://lospec.com/palette-list/moss128)
