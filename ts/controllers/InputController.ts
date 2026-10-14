@@ -16,6 +16,7 @@ export interface InputActions {
   hideWinOverlay: () => void;
   redo: () => void;
   reset: () => void;
+  rewindGame: () => void;
   showSettings: () => void;
   tryRelease: (obj: Card | Cell | Container) => void;
   trySelect: (obj: Card | Cell | Container) => void;
@@ -37,10 +38,23 @@ export default class InputController {
     this.init();
   }
 
-  disableUndoRedo() {
+  disableButton(dataAttr: string) {
     this.buttons.forEach((btn) => {
-      if ('undo' in btn.dataset || 'redo' in btn.dataset) {
+      if (dataAttr in btn.dataset) {
         btn.disabled = true;
+      }
+    });
+  }
+
+  disableUndoRedo() {
+    this.disableButton('undo');
+    this.disableButton('redo');
+  }
+
+  enableButton(dataAttr: string) {
+    this.buttons.forEach((btn) => {
+      if (dataAttr in btn.dataset) {
+        btn.disabled = false;
       }
     });
   }
@@ -196,6 +210,12 @@ export default class InputController {
           this.actions.showSettings();
         });
         btn.disabled = false;
+      }
+
+      if ('rewind' in btn.dataset) {
+        btn.addEventListener('click', () => {
+          this.actions.rewindGame();
+        });
       }
 
       if ('closeWinScreen' in btn.dataset) {

@@ -31,7 +31,7 @@ export default class Cell extends Container {
 
     if (useBackground) {
       this.graphics
-        .roundRect(0, 0, width, height, 10)
+        .roundRect(0, 0, width, height, store.layout.BORDER_RADIUS)
         .fill('#00000022')
         .stroke({ width: 2, color: '#00000044' });
       this.graphics.x = 0;
@@ -79,8 +79,8 @@ export default class Cell extends Container {
     this.stack.addCards(...cards);
   }
 
-  alignCardsVertically() {
-    this.stack.alignCardsVertically();
+  alignCards() {
+    this.stack.alignCards();
   }
 
   getCard(label: string) {

@@ -12,7 +12,63 @@ import Card from './entities/Card';
 import Cell from './entities/Cell';
 import FoundationCell from './entities/FoundationCell';
 import Stack from './entities/Stack';
-import { GameMove, GameState, LocationRef, MoveType } from './store';
+import {
+  BankMove,
+  CellMove,
+  GameMove,
+  GameState,
+  LocationRef,
+  MoveType,
+  store
+} from './store';
+
+export const areMovesEqual = (move1: GameMove, move2: GameMove) => {
+  if (move1.type !== move2.type) {
+    return false;
+  }
+
+  if (move1.cardIds.length !== move2.cardIds.length) {
+    return false;
+  }
+
+  if (!move1.cardIds.every((id, i) => id === move2.cardIds[i])) {
+    return false;
+  }
+
+  if (move1.type === MoveType.DECK_DRAW || move2.type === MoveType.DECK_DRAW) {
+    return true;
+  }
+
+  if (move1.from.kind !== move2.from.kind || move1.to.kind !== move2.to.kind) {
+    return false;
+  }
+
+  if (move1.from.kind === 'board' && move2.from.kind === 'board') {
+    if (move1.from.index !== move2.from.index) {
+      return false;
+    }
+  }
+
+  if (move1.to.kind === 'board' && move2.to.kind === 'board') {
+    if (move1.to.index !== move2.to.index) {
+      return false;
+    }
+  }
+
+  if (move1.from.kind === 'foundation' && move2.from.kind === 'foundation') {
+    if (move1.from.suit !== move2.from.suit) {
+      return false;
+    }
+  }
+
+  if (move1.to.kind === 'foundation' && move2.to.kind === 'foundation') {
+    if (move1.to.suit !== move2.to.suit) {
+      return false;
+    }
+  }
+
+  return true;
+};
 
 export const cardsAreSequential = (cards: Card[]) => {
   if (cards.length < 2) {
@@ -158,6 +214,20 @@ export const isTopCardATwo = (stack: Stack): boolean => {
   return stack.topCard?.rank === Rank.Two;
 };
 
+export const pushAutoMoveToStore = (move: BankMove | CellMove) => {
+  const cachedMove = store.movesCache.value.at(-1);
+
+  // if the pushed more is identical to the latest cached move, pop the cache
+  if (cachedMove && areMovesEqual(move, cachedMove)) {
+    signalPop(store.movesCache);
+    signalPush(store.moves, move);
+    return true;
+  }
+
+  signalPush(store.moves, move);
+  return false;
+};
+
 export const signalPop = (arrSignal: Signal<Array<any>>) => {
   const item = arrSignal.value.at(-1);
   arrSignal.value = arrSignal.value.slice(0, -1);
@@ -170,6 +240,89 @@ export const signalPush = (arrSignal: Signal<Array<any>>, item: any) => {
 
 export const rand = (min: number, max: number): number =>
   Math.random() * (max - min) + min;
+
+export const rewindGameState = (existingState: GameState) => {
+  if (!existingState.moves.length) {
+    return existingState;
+  }
+
+  const state: GameState = {
+    bank: [...existingState.bank],
+    board: existingState.board.map((row) => [...row]),
+    deck: [...existingState.deck],
+    deckCell: existingState.deckCell,
+    foundation: {
+      [Suit.Clubs]: [...existingState.foundation[Suit.Clubs]],
+      [Suit.Diamonds]: [...existingState.foundation[Suit.Diamonds]],
+      [Suit.Hearts]: [...existingState.foundation[Suit.Hearts]],
+      [Suit.Spades]: [...existingState.foundation[Suit.Spades]]
+    },
+    moves: [...existingState.moves],
+    movesCache: [...existingState.movesCache]
+  };
+
+  const popCardIdsFromLocation = (ref: LocationRef, num = 0) => {
+    // console.log('getting cards from location', JSON.stringify(ref), num);
+
+    if (ref.kind === 'bank') {
+      return state.bank.splice(-num, num);
+    }
+
+    if (ref.kind === 'deckCell') {
+      const cardId = state.deckCell;
+      state.deckCell = '';
+      return [cardId];
+    }
+
+    if (ref.kind === 'board') {
+      console.log('location is board', JSON.stringify(state.board[ref.index]));
+      return state.board[ref.index].splice(-num, num);
+    }
+
+    if (ref.kind === 'foundation') {
+      return state.foundation[ref.suit].splice(-num, num);
+    }
+  };
+
+  for (let i = state.moves.length - 1; i >= 0; i--) {
+    const move = state.moves.pop();
+    console.log('bank', JSON.stringify(state.bank));
+    console.log('rewindGameState: move', JSON.stringify(move));
+
+    if (move.type === MoveType.DECK_DRAW) {
+      popCardIdsFromLocation({ kind: 'bank' }, move.cardIds.length);
+      state.deck.push(...move.cardIds);
+      state.movesCache.push(move);
+      continue;
+    }
+
+    if (move.type === MoveType.BANK_MOVE) {
+      const cardIds = popCardIdsFromLocation(move.to, move.cardIds.length);
+      // console.log('popped cardIds from bank move', JSON.stringify(cardIds));
+      state.bank.push(...cardIds);
+      state.movesCache.push(move);
+      continue;
+    }
+
+    if (move.type === MoveType.CELL_MOVE) {
+      const cardIds = popCardIdsFromLocation(move.to, move.cardIds.length);
+      // console.log('popped cardIds from cell move', JSON.stringify(cardIds));
+
+      if (move.from.kind === 'board') {
+        state.board[move.from.index].push(...cardIds);
+      } else if (move.from.kind === 'foundation') {
+        state.foundation[move.from.suit].push(...cardIds);
+      } else if (move.from.kind === 'deckCell') {
+        state.deckCell = cardIds[0];
+      }
+
+      state.movesCache.push(move);
+      continue;
+    }
+  }
+
+  return state;
+};
 
 export const shouldAutoMoveTopCard = (
   cellOrStack: Cell | Stack,
@@ -209,7 +362,7 @@ export function shuffleCards(cards: Card[]): Card[] {
 export const stackIsSequential = (stack: Container<Card>): boolean =>
   cardsAreSequential(stack.children);
 
-// State compression
+// State compression ---------------------
 
 export const smushCardId = (id: string) => id.substring(0, id.indexOf('_') + 2);
 export const smushCardIds = (ids: string[]) => ids.map(smushCardId);

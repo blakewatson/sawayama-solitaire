@@ -4,6 +4,7 @@ import { store } from '../store';
 import { getNumericalRank } from '../utils';
 import Card from './Card';
 import Cell from './Cell';
+import { StackAlignment } from './Stack';
 
 type Tray = {
   [key in Suit]: Container<Card | Sprite>;
@@ -16,6 +17,7 @@ export default class FoundationCell extends Cell {
     super(x, y, FOUNDATION_LABEL, false);
     this.suit = suit;
     this.eventMode = 'static';
+    this.stack.alignment = StackAlignment.NONE;
 
     // create the background placeholder sprite
     const texture: Texture = store.spritesheet!.textures[`${suit}_${Rank.Ace}`];

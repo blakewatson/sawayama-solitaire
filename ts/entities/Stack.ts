@@ -3,8 +3,15 @@ import { store } from '../store';
 import { cardsAreSequential, stackIsSequential } from '../utils';
 import Card from './Card';
 
+export enum StackAlignment {
+  HORIZONTAL = 'HORIZONTAL',
+  VERTICAL = 'VERTICAL',
+  NONE = 'NONE'
+}
+
 export default class Stack extends Container<Card> {
   alignCardsAfterAdding = true;
+  alignment: StackAlignment = StackAlignment.VERTICAL; // default is vertical
   graphics: Graphics = new Graphics();
 
   constructor(label?: string) {
@@ -22,12 +29,16 @@ export default class Stack extends Container<Card> {
 
   /** Position of the next card if aligned horizontally. */
   get nextCardPosX() {
-    return this.count * store.layout.CARD_OFFSET_HORIZONTAL;
+    return this.alignment === StackAlignment.HORIZONTAL
+      ? this.count * store.layout.CARD_OFFSET_HORIZONTAL
+      : 0;
   }
 
   /** Position of the next card if aligned vertically. */
   get nextCardPosY() {
-    return this.count * store.layout.CARD_OFFSET_VERTICAL;
+    return this.alignment === StackAlignment.VERTICAL
+      ? this.count * store.layout.CARD_OFFSET_VERTICAL
+      : 0;
   }
 
   get topCard() {
@@ -43,6 +54,23 @@ export default class Stack extends Container<Card> {
 
     if (this.alignCardsAfterAdding) {
       this.alignCardsVertically();
+    }
+  }
+
+  alignCards() {
+    if (this.alignment === StackAlignment.HORIZONTAL) {
+      return this.alignCardsHorizontally();
+    }
+
+    if (this.alignment === StackAlignment.VERTICAL) {
+      return this.alignCardsVertically();
+    }
+
+    if (this.alignment === StackAlignment.NONE) {
+      return this.children.forEach((card) => {
+        card.x = 0;
+        card.y = 0;
+      });
     }
   }
 

@@ -9,27 +9,6 @@ export enum MoveType {
   CELL_MOVE = 'CELL_MOVE'
 }
 
-// interface BaseMove {
-//   type: MoveType;
-// }
-
-// export type BankMove = BaseMove & {
-//   type: MoveType.BANK_MOVE;
-//   to: Cell;
-// };
-
-// export type DeckDraw = BaseMove & {
-//   type: MoveType.DECK_DRAW;
-//   cards: Card[];
-// };
-
-// export type CellMove = BaseMove & {
-//   type: MoveType.CELL_MOVE;
-//   cards: Card[];
-//   from: Cell;
-//   to: Cell;
-// };
-
 export type LocationRef =
   | { kind: 'board'; index: number }
   | { kind: 'foundation'; suit: Suit }
@@ -88,6 +67,7 @@ interface IStore {
     BANK_POS: { x: number; y: number };
     BANK_W: number;
     BOARD_POS: { x: number; y: number };
+    BORDER_RADIUS: number;
     CARD_H: number;
     CARD_OFFSET_HORIZONTAL: number;
     CARD_OFFSET_VERTICAL: number;
@@ -119,6 +99,7 @@ export const store: IStore = {
     BANK_POS: { x: 0, y: 0 },
     BANK_W: 0,
     BOARD_POS: { x: 0, y: 0 },
+    BORDER_RADIUS: 10,
     CARD_H: 0,
     CARD_OFFSET_HORIZONTAL: 0,
     CARD_OFFSET_VERTICAL: 0,
@@ -196,6 +177,7 @@ export const store: IStore = {
     store.layout.CARD_OFFSET_VERTICAL = store.layout.CARD_H / 2;
     store.layout.CARD_OFFSET_HORIZONTAL = store.layout.CARD_W / 2.75;
     store.layout.STACK_GAP = 10;
+    store.layout.BORDER_RADIUS = 5;
 
     store.layout.VIEW_W =
       (store.layout.CARD_W + store.layout.STACK_GAP) * 7 +

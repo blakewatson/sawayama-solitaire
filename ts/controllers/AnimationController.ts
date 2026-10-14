@@ -1,5 +1,6 @@
 import {
   animate,
+  AnimationParams,
   createTimeline,
   JSAnimation,
   stagger,
@@ -79,202 +80,89 @@ export default class AnimationController {
     background.addChild(sprite);
   }
 
-  bankToCell(bank: Stack, toCell: Cell) {
-    return new Promise((resolve, reject) => {
-      if (this.disabled) {
-        return resolve(false);
-      }
+  animateToPosition(
+    cards: Card[],
+    to: Cell | Stack,
+    params: AnimationParams = {}
+  ) {
+    if (!cards.length) {
+      throw new Error('No cards provided');
+    }
 
-      const scene = this.view.mainScene;
+    if (this.disabled) {
+      return Promise.resolve(false);
+    }
 
-      const card = bank.topCard;
+    const scene = this.view.mainScene;
 
-      if (!card) {
-        return reject('The bank is empty.');
-      }
+    // get first card position in mainScene space
+    const start = scene.toLocal(cards[0].getGlobalPosition());
 
-      // get card position in mainScene space
-      const start = scene.toLocal(card.getGlobalPosition());
+    // get the destination stack
+    const toStack = to instanceof Stack ? to : to.stack;
 
-      // get the target y position relative to toCell.stack
-      const y =
-        toCell instanceof FoundationCell ? 0 : toCell.stack.nextCardPosY;
+    // get the target x position relative to toCell.stack
+    const x = toStack.nextCardPosX;
 
-      // get the target destination in mainScene space
-      const dest = scene.toLocal({ x: 0, y }, toCell.stack);
+    // get the target y position relative to toCell.stack
+    const y = toStack.nextCardPosY;
 
-      // Add cards to a temporary stack for moving
-      const mover = new Stack('tmp');
-      this.view.addChild(mover);
-      mover.x = start.x;
-      mover.y = start.y;
-      mover.addChild(bank.topCard);
+    // get the target destination in mainScene space
+    const dest = scene.toLocal({ x, y }, toStack);
 
-      card.x = 0;
-      card.y = 0;
+    // Add cards to a temporary stack for moving
+    const mover = new Stack('tmp');
+    this.view.addChild(mover);
+    mover.x = start.x;
+    mover.y = start.y;
+    mover.addChild(...cards);
 
-      const animProxy = {
-        x: mover.x,
-        y: mover.y
-      };
+    // reset local card positions
+    mover.alignCards();
 
-      // animate to position
-      this.activeAnimations.push(
-        animate(animProxy, {
-          x: dest.x,
-          y: dest.y,
-          duration: getAnimationDurationForPoints(start, dest),
-          ease: 'inOutSine',
-          onUpdate: (anim) => {
-            mover.x = animProxy.x;
-            mover.y = animProxy.y;
-          },
-          onComplete: (anim) => {
-            toCell.addCard(card);
-            card.x = 0;
-            toCell.alignCardsVertically();
-            this.removeActiveAnimation(anim);
-            resolve(true);
-          },
-          onPause: (anim) => {
-            this.removeActiveAnimation(anim);
-            resolve(false);
-          }
-        })
-      );
+    // We have to animate via an object
+    const animProxy = {
+      x: mover.x,
+      y: mover.y
+    };
+
+    const anim = animate(animProxy, {
+      x: dest.x,
+      y: dest.y,
+      duration: getAnimationDurationForPoints(start, dest),
+      ease: 'inOutSine',
+      onUpdate: (anim) => {
+        mover.x = animProxy.x;
+        mover.y = animProxy.y;
+      },
+      onComplete: (anim) => {
+        if (to instanceof FoundationCell) {
+          mover.children[0].removeShadow();
+          to.addCard(mover.children[0]);
+        } else {
+          toStack.addCards(...mover.children);
+          toStack.alignCards();
+        }
+
+        this.view.removeChild(mover);
+        mover.destroy();
+
+        this.removeActiveAnimation(anim);
+      },
+      onPause: (anim) => {
+        this.removeActiveAnimation(anim);
+      },
+      ...params
     });
+
+    this.activeAnimations.push(anim);
+    return anim;
   }
 
   cancelActiveAnimations() {
     this.activeAnimations.forEach((anim) => anim.cancel());
     this.activeAnimations = [];
     this.isWinAnimation = false;
-  }
-
-  cellToBank(bank: Stack, fromCell: Cell) {
-    return new Promise((resolve, _) => {
-      if (this.disabled) {
-        return resolve(false);
-      }
-
-      const scene = this.view.mainScene;
-
-      // get card position in mainScene space
-      const start = scene.toLocal(fromCell.topCard.getGlobalPosition());
-
-      // get the target x position relative to bank
-      const x = bank.nextCardPosX;
-
-      // get the target destination in mainScene space
-      const dest = scene.toLocal({ x, y: 0 }, bank);
-
-      // Add cards to a temporary stack for moving
-      const mover = new Stack('tmp');
-      this.view.addChild(mover);
-      mover.x = start.x;
-      mover.y = start.y;
-      mover.addChild(fromCell.popCard());
-
-      const card = mover.children[0] as Card;
-      card.x = 0;
-      card.y = 0;
-
-      const animProxy = {
-        x: mover.x,
-        y: mover.y
-      };
-
-      // animate to position
-      this.activeAnimations.push(
-        animate(animProxy, {
-          x: dest.x,
-          y: dest.y,
-          duration: getAnimationDurationForPoints(start, dest),
-          ease: 'inOutSine',
-          onUpdate: (anim) => {
-            mover.x = animProxy.x;
-            mover.y = animProxy.y;
-          },
-          onComplete: (anim) => {
-            bank.addCards(card);
-            card.y = 0;
-            card.x = store.layout.CARD_OFFSET_HORIZONTAL * (bank.count - 1);
-            this.removeActiveAnimation(anim);
-            resolve(true);
-          },
-          onPause: (anim) => {
-            this.removeActiveAnimation(anim);
-            resolve(false);
-          }
-        })
-      );
-    });
-  }
-
-  cellToCell(fromCell: Cell, toCell: Cell, cards: Card[]) {
-    return new Promise((resolve, reject) => {
-      if (!cards.length) {
-        return reject('No cards provided');
-      }
-
-      const scene = this.view.mainScene;
-
-      // get first card position in mainScene space
-      const start = scene.toLocal(cards[0].getGlobalPosition());
-
-      // get the target y position relative to toCell.stack
-      const y =
-        toCell instanceof FoundationCell ? 0 : toCell.stack.nextCardPosY;
-
-      // get the target destination in mainScene space
-      const dest = scene.toLocal({ x: 0, y }, toCell.stack);
-
-      // Add cards to a temporary stack for moving
-      const mover = new Stack('tmp');
-      this.view.addChild(mover);
-      mover.x = start.x;
-      mover.y = start.y;
-      mover.addChild(...cards);
-
-      // reset local card positions
-      mover.alignCardsVertically();
-
-      // We have to animate via an object
-      const animProxy = {
-        x: mover.x,
-        y: mover.y
-      };
-
-      // animate to position
-      this.activeAnimations.push(
-        animate(animProxy, {
-          x: dest.x,
-          y: dest.y,
-          duration: getAnimationDurationForPoints(start, dest),
-          ease: 'inOutSine',
-          onUpdate: (anim) => {
-            mover.x = animProxy.x;
-            mover.y = animProxy.y;
-          },
-          onComplete: (anim) => {
-            if (toCell instanceof FoundationCell) {
-              mover.children[0].removeShadow();
-              toCell.addCard(mover.children[0]);
-            } else {
-              toCell.addCards(...mover.children);
-              toCell.alignCardsVertically();
-            }
-
-            this.removeActiveAnimation(anim);
-            resolve(true);
-          },
-          onPause: (anim) => {
-            this.removeActiveAnimation(anim);
-            resolve(false);
-          }
-        })
-      );
-    });
   }
 
   completeHandAnimation() {
@@ -331,7 +219,7 @@ export default class AnimationController {
             cell.addCard(card); // moves the card to new container
             card.x = 0;
             card.y = 0;
-            cell.alignCardsVertically();
+            cell.alignCards();
             card.eventMode = 'static';
 
             this.removeActiveAnimation(anim);
@@ -411,183 +299,76 @@ export default class AnimationController {
     });
   }
 
-  handToBank(bank: Stack, duration = 75) {
-    return new Promise((resolve, reject) => {
-      this.completeHandAnimation();
+  fromHand(to: Cell | Stack, duration = 75) {
+    if (!store.hand.count) {
+      throw new Error('No cards in hand to animate');
+    }
 
-      // get target position
-      const targetPos = bank.getGlobalPosition();
-      // get hand position
-      const handPos = store.hand.getGlobalPosition();
+    this.completeHandAnimation();
 
-      // Add cards to a temporary stack for moving
-      const mover = new Stack('tmp');
-      this.view.addChild(mover);
-      mover.x = handPos.x;
-      mover.y = handPos.y;
-      mover.scale = store.hand.scale;
-      mover.addChild(...store.hand.children);
+    const scene = this.view.mainScene;
 
-      const card = mover.children[0] as Card;
+    // get hand position in mainScene space
+    const start = scene.toLocal(store.hand.children[0].getGlobalPosition());
 
-      const animProxy = {
-        x: mover.x,
-        y: mover.y,
-        scale: 1.15
-      };
+    // get the destination stack
+    const toStack = to instanceof Stack ? to : to.stack;
 
-      // animate to position
-      const handAnim = animate(animProxy, {
-        x:
-          targetPos.x -
-          card.x +
-          store.layout.CARD_OFFSET_HORIZONTAL * bank.count,
-        y: targetPos.y - card.y,
-        scale: 1,
-        duration,
-        ease: 'inOutQuad',
-        onUpdate: (anim) => {
-          mover.x = animProxy.x;
-          mover.y = animProxy.y;
-          mover.scale = animProxy.scale;
-        },
-        onComplete: (anim) => {
-          bank.addCards(card);
-          card.x = store.layout.CARD_OFFSET_HORIZONTAL * (bank.count - 1);
-          card.y = 0;
+    // get the target x position relative to toCell.stack
+    const x = toStack.nextCardPosX;
 
-          store.hand.scale = 1;
-          this.view.removeChild(mover);
-          mover.destroy();
-          this.removeActiveAnimation(anim);
-          resolve(true);
-        },
-        onPause: (anim) => {
-          this.removeActiveAnimation(anim);
-          resolve(false);
-        }
-      });
+    // get the target y position relative to toCell.stack
+    const y = toStack.nextCardPosY;
 
-      handAnim.id = 'handAnim';
-      this.activeAnimations.push(handAnim);
+    // get the target destination in mainScene space
+    const dest = scene.toLocal({ x, y }, toStack);
+
+    // Add cards to a temporary stack for moving
+    const mover = new Stack('tmp');
+    this.view.addChild(mover);
+    mover.x = start.x;
+    mover.y = start.y;
+    mover.scale = store.hand.scale;
+    mover.addChild(...store.hand.children);
+
+    // reset local card positions
+    mover.alignCards();
+
+    // We have to animate via an object
+    const animProxy = {
+      x: mover.x,
+      y: mover.y,
+      scale: 1.15
+    };
+
+    // animate to position
+    const handAnim = animate(animProxy, {
+      x: dest.x,
+      y: dest.y,
+      scale: 1,
+      duration,
+      ease: 'inOutQuad',
+      onUpdate: (anim) => {
+        mover.x = animProxy.x;
+        mover.y = animProxy.y;
+        mover.scale = animProxy.scale;
+      },
+      onComplete: (anim) => {
+        toStack.addCards(...mover.children);
+        toStack.alignCards();
+        store.hand.scale = 1;
+        this.view.removeChild(mover);
+        mover.destroy();
+        this.removeActiveAnimation(anim);
+      },
+      onPause: (anim) => {
+        this.removeActiveAnimation(anim);
+      }
     });
-  }
 
-  handToCell(targetCell: Cell, duration = 75) {
-    return new Promise((resolve, reject) => {
-      this.completeHandAnimation();
-
-      // get target position
-      const targetPos = targetCell.getGlobalPosition();
-      // get hand position
-      const handPos = store.hand.getGlobalPosition();
-
-      // Add cards to a temporary stack for moving
-      const mover = new Stack('tmp');
-      this.view.addChild(mover);
-      mover.x = handPos.x;
-      mover.y = handPos.y;
-      mover.scale = store.hand.scale;
-      mover.addChild(...store.hand.children);
-
-      const card = mover.children[0] as Card;
-
-      const animProxy = {
-        x: mover.x,
-        y: mover.y,
-        scale: 1.15
-      };
-
-      // animate to position
-      const handAnim = animate(animProxy, {
-        x: targetPos.x - card.x,
-        y:
-          targetPos.y -
-          card.y +
-          store.layout.CARD_OFFSET_VERTICAL * targetCell.count,
-        scale: 1,
-        duration: 75,
-        ease: 'inOutQuad',
-        onUpdate: (anim) => {
-          mover.x = animProxy.x;
-          mover.y = animProxy.y;
-          mover.scale = animProxy.scale;
-        },
-        onComplete: (anim) => {
-          targetCell.addCards(...mover.children);
-          targetCell.alignCardsVertically();
-          store.hand.scale = 1;
-          this.view.removeChild(mover);
-          mover.destroy();
-          this.removeActiveAnimation(anim);
-          resolve(true);
-        },
-        onPause: (anim) => {
-          this.removeActiveAnimation(anim);
-          resolve(false);
-        }
-      });
-
-      handAnim.id = 'handAnim';
-      this.activeAnimations.push(handAnim);
-    });
-  }
-
-  handToFoundationCell(cell: FoundationCell) {
-    return new Promise((resolve, reject) => {
-      this.completeHandAnimation();
-
-      // get target position
-      const targetPos = cell.getGlobalPosition();
-      // get hand position
-      const handPos = store.hand.getGlobalPosition();
-
-      // Add cards to a temporary stack for moving
-      const mover = new Stack('tmp');
-      this.view.addChild(mover);
-      mover.x = handPos.x;
-      mover.y = handPos.y;
-      mover.scale = store.hand.scale;
-      mover.addChild(...store.hand.children);
-
-      const card = mover.children[0] as Card;
-
-      const animProxy = {
-        x: mover.x,
-        y: mover.y,
-        scale: 1.15
-      };
-
-      // animate to position
-      const handAnim = animate(animProxy, {
-        x: targetPos.x - card.x,
-        y: targetPos.y - card.y,
-        scale: 1,
-        duration: CARD_ANIM_SPEED_MS,
-        ease: 'inOutQuad',
-        onUpdate: (anim) => {
-          mover.x = animProxy.x;
-          mover.y = animProxy.y;
-          mover.scale = animProxy.scale;
-        },
-        onComplete: (anim) => {
-          cell.add(card);
-
-          store.hand.scale = 1;
-          this.view.removeChild(mover);
-          mover.destroy();
-          this.removeActiveAnimation(anim);
-          resolve(true);
-        },
-        onPause: (anim) => {
-          this.removeActiveAnimation(anim);
-          resolve(false);
-        }
-      });
-
-      handAnim.id = 'handAnim';
-      this.activeAnimations.push(handAnim);
-    });
+    handAnim.id = 'handAnim';
+    this.activeAnimations.push(handAnim);
+    return handAnim;
   }
 
   private removeActiveAnimation(anim: JSAnimation | Timeline) {

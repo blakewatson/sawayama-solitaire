@@ -38,6 +38,8 @@ import {
   isBankObj,
   isCardOnBoard,
   isFirstCardAllowedOnSecond,
+  pushAutoMoveToStore,
+  rewindGameState,
   shouldAutoMoveTopCard,
   shuffleCards,
   signalPop,
@@ -56,6 +58,7 @@ export default class Game {
   deck: Card[] = [];
   deckCell: Cell | null = null;
   deckSprites: Container | null = null;
+  endingGameState: GameState | null = null;
   foundation: FoundationCell[] = [];
   handOffset: [number, number] = [0, 0];
   handOrigin = '';
@@ -106,17 +109,27 @@ export default class Game {
     // the win animation layers go last
     this.view.initWinAnimationLayers();
 
-    // read the game state from the URL if present
-    this.readUrl();
+    // read the game state from the URL if present (null if not)
+    const urlState = this.readUrl();
+
+    // read gamestate from localStorage if present (null if not)
+    const localStorageStateStr = localStorage.getItem('gameState');
+    const localStorageState = localStorageStateStr
+      ? (JSON.parse(localStorageStateStr) as GameState)
+      : null;
+
+    // prefer the URL state if present, otherwise use localStorage state, otherwise null
+    const initialState = urlState || localStorageState || null;
 
     // start a new game or saved one
-    this.initGameState().finally(() => {
+    this.initGameState(initialState).finally(() => {
       // Turn on the input controller.
       this.input = new InputController(this.view, {
         copyGameState: this.copyGameState.bind(this),
         hideWinOverlay: this.view.hideWinOverlay.bind(this.view),
         redo: this.tryRedo.bind(this),
         reset: this.tryReset.bind(this),
+        rewindGame: this.rewindGame.bind(this),
         showSettings: this.settings.openDialog.bind(this.settings),
         tryRelease: this.tryRelease.bind(this),
         trySelect: this.trySelect.bind(this),
@@ -128,6 +141,23 @@ export default class Game {
 
       if (this.checkForWin()) {
         this.isGameOver = true;
+        this.endingGameState = this.getGameStateObject();
+        this.view.showWinOverlay();
+      }
+    });
+
+    window.addEventListener('hashchange', async (event) => {
+      const initialState = this.readUrl();
+
+      if (!initialState) {
+        return;
+      }
+
+      await this.tryReset(initialState);
+
+      if (this.checkForWin()) {
+        this.isGameOver = true;
+        this.endingGameState = this.getGameStateObject();
         this.view.showWinOverlay();
       }
     });
@@ -146,9 +176,9 @@ export default class Game {
 
   async checkForConditions() {
     const cardsWereMoved = await this.checkForFoundationCards();
-    this.saveGameState();
 
     if (cardsWereMoved) {
+      this.saveGameState();
       return;
     }
 
@@ -210,7 +240,7 @@ export default class Game {
   }
 
   copyGameState() {
-    const gameState = this.getGameStateObject();
+    const gameState = this.endingGameState || this.getGameStateObject();
 
     if (!gameState) {
       return;
@@ -281,21 +311,20 @@ export default class Game {
   doCardAutoMove(move: CellMove | BankMove) {
     if (move.type === MoveType.BANK_MOVE) {
       const target = this.getLocation(move.to);
-      return this.animator.bankToCell(this.bank, target);
+      return this.animator.animateToPosition([this.bank.topCard], target);
     }
 
-    const fromLocation = this.getLocation(move.from);
     const toLocation = this.getLocation(move.to);
     const cards = this.getCards(move.cardIds);
-    return this.animator.cellToCell(fromLocation, toLocation, cards);
+    return this.animator.animateToPosition(cards, toLocation);
   }
 
   doCardMove(move: CellMove | BankMove) {
     if (move.to.kind === 'foundation') {
-      return this.animator.handToFoundationCell(this.getLocation(move.to));
+      return this.animator.fromHand(this.getLocation(move.to));
     }
 
-    return this.animator.handToCell(this.getLocation(move.to));
+    return this.animator.fromHand(this.getLocation(move.to));
   }
 
   async drawFromDeck() {
@@ -327,6 +356,8 @@ export default class Game {
 
   async gameOver() {
     this.isGameOver = true;
+    this.endingGameState = this.getGameStateObject();
+
     let sanity = 0;
 
     while (
@@ -350,10 +381,9 @@ export default class Game {
           : card;
       }, null);
 
-      const fromCell = getCellFromCard(lowestCard);
       const toCell = getFoundationCell(lowestCard.suit, this.foundation);
 
-      await this.animator.cellToCell(fromCell, toCell, [lowestCard]);
+      await this.animator.animateToPosition([lowestCard], toCell);
     }
 
     if (!this.isGameOver) {
@@ -448,7 +478,7 @@ export default class Game {
         const card = this.getCardById(cardId);
         cell.addCards(card);
       });
-      cell.alignCardsVertically();
+      cell.alignCards();
     });
   }
 
@@ -472,9 +502,7 @@ export default class Game {
     });
   }
 
-  async initGameState() {
-    const existingState = localStorage.getItem('gameState');
-
+  async initGameState(existingState: GameState | null = null) {
     if (!existingState) {
       // create the deck array
       this.resetDeck();
@@ -482,14 +510,13 @@ export default class Game {
       this.resetDeckSprites();
 
       await this.dealCards();
+      this.saveGameState();
       await this.checkForConditions();
       return;
     }
 
-    const state = JSON.parse(existingState) as GameState;
-
     const { bank, board, deck, deckCell, foundation, moves, movesCache } =
-      state;
+      existingState;
 
     if (bank.length) {
       this.initBankState(bank);
@@ -499,9 +526,9 @@ export default class Game {
       this.initBoardState(board);
     }
 
-    if (deck.length) {
-      this.deck = deck.map((cardId) => this.getCardById(cardId));
-    } else if (deckCell) {
+    this.deck = deck.map((cardId) => this.getCardById(cardId));
+
+    if (deckCell) {
       const card = this.getCardById(deckCell);
       this.deckCell.addCards(card);
     }
@@ -512,13 +539,9 @@ export default class Game {
       this.initFoundationState(foundation);
     }
 
-    if (moves.length) {
-      store.moves.value = moves;
-    }
-
-    if (movesCache.length) {
-      store.movesCache.value = movesCache;
-    }
+    store.moves.value = moves;
+    store.movesCache.value = movesCache;
+    this.saveGameState();
   }
 
   async moveAdd(move: GameMove, resetCache = true) {
@@ -554,7 +577,12 @@ export default class Game {
 
   async moveAddAuto(move: BankMove | CellMove) {
     if (move.type === MoveType.BANK_MOVE) {
-      signalPush(store.moves, move);
+      const retainHistory = pushAutoMoveToStore(move);
+
+      if (!retainHistory) {
+        store.movesCache.value = [];
+      }
+
       await this.doCardAutoMove(move);
       this.refreshBank();
       this.saveGameState();
@@ -563,7 +591,12 @@ export default class Game {
     }
 
     if (move.type === MoveType.CELL_MOVE) {
-      signalPush(store.moves, move);
+      const retainHistory = pushAutoMoveToStore(move);
+
+      if (!retainHistory) {
+        store.movesCache.value = [];
+      }
+
       await this.doCardAutoMove(move);
       this.saveGameState();
       await this.checkForConditions();
@@ -654,7 +687,8 @@ export default class Game {
       : null;
 
     if (!gameParam) {
-      return;
+      console.log('No game state in URL.');
+      return null;
     }
 
     const decoded = atob(gameParam);
@@ -664,27 +698,28 @@ export default class Game {
       var parsed = JSON.parse(decoded);
     } catch (e) {
       console.error('Invalid game state in URL.');
-      return;
+      return null;
     }
 
     const unsmushed = unsmushGameState(parsed);
 
-    const gameStateJson = JSON.stringify(unsmushed);
+    // clear the hash from the URL
+    console.log('clearing the hash from the URL');
+    history.replaceState(null, '', location.pathname + location.search);
 
-    localStorage.setItem('gameState', gameStateJson);
+    return unsmushed;
   }
 
   async redoBankMove(move: BankMove) {
     const target = this.getLocation(move.to);
-    await this.animator.bankToCell(this.bank, target);
+    await this.animator.animateToPosition([this.bank.topCard], target);
     this.refreshBank();
   }
 
   async redoCellMove(move: CellMove) {
-    const fromLocation = this.getLocation(move.from);
     const toLocation = this.getLocation(move.to);
     const cards = this.getCards(move.cardIds);
-    return await this.animator.cellToCell(fromLocation, toLocation, cards);
+    return await this.animator.animateToPosition(cards, toLocation);
   }
 
   async redoDeckDraw() {
@@ -728,12 +763,12 @@ export default class Game {
     const originObj = this.getHandOriginObj();
 
     if (originObj.label === BANK_LABEL) {
-      await this.animator.handToBank(this.bank);
+      await this.animator.fromHand(this.bank);
       return true;
     }
 
     if (originObj instanceof Cell) {
-      await this.animator.handToCell(originObj);
+      await this.animator.fromHand(originObj);
       return true;
     }
   }
@@ -742,6 +777,17 @@ export default class Game {
     if (this.input.currentState === InputState.DRAGGING) {
       this.returnHandToOrigin();
     }
+  }
+
+  async rewindGame() {
+    if (!this.endingGameState) {
+      return;
+    }
+
+    const newState = rewindGameState(this.endingGameState);
+    await this.tryReset(newState);
+    this.view.hideWinOverlay();
+    await this.checkForConditions();
   }
 
   getGameStateObject(): GameState {
@@ -769,9 +815,9 @@ export default class Game {
     return game;
   }
 
-  saveGameState() {
+  saveGameState(key = 'gameState') {
     const game = this.getGameStateObject();
-    localStorage.setItem('gameState', JSON.stringify(game));
+    localStorage.setItem(key, JSON.stringify(game));
   }
 
   async selectCardsFromCard(card: Card) {
@@ -835,7 +881,7 @@ export default class Game {
     // putting it back.
     if (isBankObj(obj)) {
       if (this.handOrigin === BANK_LABEL && store.hand.count === 1) {
-        return this.animator.handToBank(this.bank);
+        return this.animator.fromHand(this.bank);
       }
 
       // Otherwise, the bank is not a valid target for the hand.
@@ -866,7 +912,7 @@ export default class Game {
     // If the target is where the hand originally came from, allow the user to
     // put it back.
     if (targetCell.label === this.handOrigin) {
-      return this.animator.handToCell(targetCell);
+      return this.animator.fromHand(targetCell);
     }
 
     // If the target is the free cell, but the hand has multiple cards, disallow
@@ -893,13 +939,15 @@ export default class Game {
     return this.returnHandToOriginIfDragging();
   }
 
-  async tryReset(useExistingGameState = false) {
+  async tryReset(existingState: GameState | null = null) {
     this.isGameOver = false;
     this.input.clicksDisabled = true;
-    console.log('clicks disabled');
+    this.input.disableButton('share');
 
     this.animator.resetWinAnimation();
     this.animator.cancelActiveAnimations();
+
+    this.endingGameState = null;
 
     // remove all cards from the game view and reset them
     this.cardsById.forEach((card) => {
@@ -926,9 +974,10 @@ export default class Game {
     this.foundation.forEach((tray) => tray.stack.removeChildren());
     this.view.hideWinOverlay();
 
-    if (useExistingGameState) {
-      await this.initGameState();
+    if (existingState) {
+      await this.initGameState(existingState);
       this.input.clicksDisabled = false;
+      this.input.enableButton('share');
       return;
     }
 
@@ -946,10 +995,14 @@ export default class Game {
     await this.checkForConditions();
     this.saveGameState();
     this.input.clicksDisabled = false;
-    console.log('clicks enabled');
+    this.input.enableButton('share');
   }
 
   async trySelect(obj: Card | Cell | Container) {
+    if (this.animator.isAnimating) {
+      return;
+    }
+
     if (obj instanceof Card) {
       this.selectCardsFromCard(obj);
     }
@@ -990,8 +1043,9 @@ export default class Game {
       const card = this.getCardById(move.cardIds[0]);
       card.addShadow();
     }
-    const target = this.getLocation(move.to);
-    await this.animator.cellToBank(this.bank, target);
+    const target = this.getLocation(move.from);
+    const cards = this.getCards(move.cardIds);
+    await this.animator.animateToPosition(cards, target);
     this.refreshBank();
   }
 
@@ -1002,9 +1056,8 @@ export default class Game {
       card.addShadow();
     }
     const fromLocation = this.getLocation(move.from);
-    const toLocation = this.getLocation(move.to);
     const cards = this.getCards(move.cardIds);
-    return this.animator.cellToCell(toLocation, fromLocation, cards);
+    return this.animator.animateToPosition(cards, fromLocation);
   }
 
   undoDeckDraw(move: DeckDraw) {
@@ -1038,7 +1091,11 @@ export default class Game {
   }
 
   async undoGameOver() {
-    await this.tryReset(true);
+    const gameStateStr = localStorage.getItem('gameState');
+    const gameState = gameStateStr
+      ? (JSON.parse(gameStateStr) as GameState)
+      : null;
+    await this.tryReset(gameState);
     this.view.hideWinOverlay();
     this.moveUndo();
   }

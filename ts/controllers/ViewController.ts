@@ -11,7 +11,7 @@ import { app } from '../app';
 import { BANK_BG, BANK_LABEL, DECK_CELL_LABEL, DECK_LABEL } from '../constants';
 import Cell from '../entities/Cell';
 import FoundationCell from '../entities/FoundationCell';
-import Stack from '../entities/Stack';
+import Stack, { StackAlignment } from '../entities/Stack';
 import { store } from '../store';
 
 export default class ViewController {
@@ -75,6 +75,7 @@ export default class ViewController {
   initBank() {
     const bank = new Stack(BANK_LABEL);
     bank.alignCardsAfterAdding = false;
+    bank.alignment = StackAlignment.HORIZONTAL;
     bank.x = store.layout.BANK_POS.x;
     bank.y = store.layout.BANK_POS.y;
 
@@ -88,7 +89,7 @@ export default class ViewController {
     const bankH = store.layout.CARD_H;
 
     bankBgGraphic
-      .roundRect(0, 0, bankW, bankH, 10)
+      .roundRect(0, 0, bankW, bankH, store.layout.BORDER_RADIUS)
       .fill('#00000022')
       .stroke({ width: 2, color: '#00000044' });
 
@@ -112,6 +113,8 @@ export default class ViewController {
       store.layout.CARD_W,
       store.layout.CARD_H
     );
+
+    deckCell.stack.alignment = StackAlignment.NONE;
 
     this.addChild(deckCell);
     return deckCell;
@@ -219,6 +222,8 @@ export default class ViewController {
     if (moveCountEl) {
       moveCountEl.textContent = `Moves: ${moveCount}`;
     }
+
+    document.querySelector('[data-rewind]').removeAttribute('hidden');
     document.querySelector('.game-over').classList.add('active');
   }
 }
